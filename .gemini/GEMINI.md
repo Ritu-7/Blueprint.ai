@@ -1,0 +1,1 @@
+"Always use Tailwind CSS for styling. Prefer Framer Motion for animations. Follow the MERN architecture. Keep the design 'glassmorphism' and high-tech."
