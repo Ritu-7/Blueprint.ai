@@ -72,17 +72,17 @@ export default function DocsPage() {
                 <GlassCard>
                   <h4 className="text-white font-bold text-xs uppercase tracking-widest mb-3">Effective Prompts</h4>
                   <ul className="text-xs space-y-2 opacity-80">
-                    <li>"Generate a CRM with lead tracking"</li>
-                    <li>"Build a dark-themed analytics portal"</li>
-                    <li>"Create a secure file management system"</li>
+                    <li>&quot;Generate a CRM with lead tracking&quot;</li>
+                    <li>&quot;Build a dark-themed analytics portal&quot;</li>
+                    <li>&quot;Create a secure file management system&quot;</li>
                   </ul>
                 </GlassCard>
                 <GlassCard>
                   <h4 className="text-white font-bold text-xs uppercase tracking-widest mb-3">Ineffective Prompts</h4>
                   <ul className="text-xs space-y-2 opacity-80">
-                    <li>"Make a website"</li>
-                    <li>"App for business"</li>
-                    <li>"Cool UI"</li>
+                    <li>&quot;Make a website&quot;</li>
+                    <li>&quot;App for business&quot;</li>
+                    <li>&quot;Cool UI&quot;</li>
                   </ul>
                 </GlassCard>
               </div>
