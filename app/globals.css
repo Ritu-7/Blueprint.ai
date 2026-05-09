@@ -4,72 +4,73 @@
 
 @layer base {
   :root {
-    --background: 240 10% 3.9%;
-    --foreground: 0 0% 98%;
-    --card: 240 10% 3.9%;
-    --card-foreground: 0 0% 98%;
-    --popover: 240 10% 3.9%;
-    --popover-foreground: 0 0% 98%;
-    --primary: 188 95% 43%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 240 5% 14.9%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 240 5% 14.9%;
+    --background: 222 47% 3%;
+    --foreground: 0 0% 100%;
+    --card: 0 0% 100% / 0.05;
+    --card-foreground: 0 0% 100%;
+    --popover: 222 47% 3%;
+    --popover-foreground: 0 0% 100%;
+    --primary: 181 100% 50%;
+    --primary-foreground: 222 47% 3%;
+    --secondary: 0 0% 100% / 0.1;
+    --secondary-foreground: 0 0% 100%;
+    --muted: 0 0% 100% / 0.1;
     --muted-foreground: 0 0% 63.9%;
-    --accent: 240 5% 14.9%;
-    --accent-foreground: 0 0% 98%;
-    --destructive: 0 62.8% 30.6%;
+    --accent: 181 100% 50% / 0.1;
+    --accent-foreground: 181 100% 50%;
+    --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
-    --border: 240 5% 17%;
-    --input: 240 5% 17%;
-    --ring: 188 95% 43%;
-    --chart-1: 188 95% 43%;
-    --chart-2: 160 60% 45%;
-    --chart-3: 30 80% 55%;
-    --chart-4: 280 65% 60%;
-    --chart-5: 340 75% 55%;
-    --radius: 0.5rem;
+    --border: 0 0% 100% / 0.1;
+    --input: 0 0% 100% / 0.05;
+    --ring: 181 100% 50%;
+    --radius: 0.75rem;
   }
 }
 
 @layer base {
   * {
-    @apply border-border;
+    @apply border-border selection:bg-cyan-500/30 selection:text-cyan-500;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground font-sans antialiased;
+    background-image: 
+      radial-gradient(circle at 50% 0%, rgba(0, 243, 255, 0.05) 0%, transparent 50%),
+      radial-gradient(circle at 0% 100%, rgba(0, 243, 255, 0.02) 0%, transparent 50%);
   }
 }
 
 @layer utilities {
   .glass {
-    @apply bg-white/[0.03] backdrop-blur-xl border border-white/[0.06];
+    @apply bg-white/[0.03] backdrop-blur-xl border border-white/[0.06] shadow-xl;
   }
-  .neon-glow {
-    box-shadow: 0 0 20px rgba(6, 182, 212, 0.15), 0 0 60px rgba(6, 182, 212, 0.05);
+  .neon-border {
+    @apply border border-cyan-500/50 shadow-[0_0_10px_rgba(0,243,255,0.2)];
   }
   .neon-text {
-    text-shadow: 0 0 10px rgba(6, 182, 212, 0.5), 0 0 40px rgba(6, 182, 212, 0.2);
+    @apply text-cyan-500 drop-shadow-[0_0_8px_rgba(0,243,255,0.5)];
   }
-  .grid-bg {
-    background-image:
-      linear-gradient(rgba(6, 182, 212, 0.03) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(6, 182, 212, 0.03) 1px, transparent 1px);
-    background-size: 60px 60px;
+  .glow-text {
+    @apply text-cyan-300 drop-shadow-[0_0_18px_rgba(0,243,255,0.45)];
+  }
+  .animated-card {
+    @apply transition-all duration-300 hover:-translate-y-1 hover:border-cyan-500/30 hover:shadow-[0_24px_80px_rgba(0,243,255,0.08)];
+  }
+  .animate-pulse-neon {
+    animation: neon-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
   }
 }
 
+@keyframes neon-pulse {
+  0%, 100% { border-color: rgba(0, 243, 255, 0.3); box-shadow: 0 0 5px rgba(0, 243, 255, 0.1); }
+  50% { border-color: rgba(0, 243, 255, 0.8); box-shadow: 0 0 20px rgba(0, 243, 255, 0.4); }
+}
+
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 5px;
 }
 ::-webkit-scrollbar-track {
-  background: transparent;
+  @apply bg-transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.08);
-  border-radius: 3px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.15);
+  @apply bg-white/10 rounded-full hover:bg-cyan-500/50 transition-colors;
 }

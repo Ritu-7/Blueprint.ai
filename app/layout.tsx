@@ -1,14 +1,14 @@
 import './globals.css';
 import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
 import { ClerkProvider } from '@clerk/nextjs';
 import { ClientProviders } from '@/components/ClientProviders';
-
-const inter = Inter({ subsets: ['latin'] });
+import { Navbar } from '@/components/Navbar';
+import { Footer } from '@/components/Footer';
+import { Toaster } from '@/components/ui/sonner';
 
 export const metadata: Metadata = {
-  title: 'NexusCore — Low-Code App Generator',
-  description: 'A full-stack system that dynamically generates an app based on a JSON Blueprint',
+  title: 'Blueprint.ai | Build Apps with AI',
+  description: 'Cyberpunk-Minimalist AI App Builder Platform',
 };
 
 export default function RootLayout({
@@ -18,11 +18,19 @@ export default function RootLayout({
 }) {
   return (
     <ClerkProvider>
-      <html lang="en" className="dark">
-        <body className={`${inter.className} bg-zinc-950 text-zinc-100 antialiased`}>
-          <ClientProviders>{children}</ClientProviders>
+      <html lang="en" className="dark scroll-smooth">
+        <body className="min-h-screen bg-background font-sans text-foreground antialiased selection:bg-cyan-500/30 selection:text-cyan-500">
+          <ClientProviders>
+            <div className="relative flex min-h-screen flex-col">
+              <Navbar />
+              <main className="flex-1">{children}</main>
+              <Footer />
+            </div>
+          </ClientProviders>
+          <Toaster richColors closeButton theme="dark" />
         </body>
       </html>
     </ClerkProvider>
   );
 }
+

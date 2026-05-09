@@ -1,180 +1,127 @@
-'use client';
+import Link from 'next/link';
+import { Activity, ArrowUpRight, Boxes, Clock, LayoutDashboard, Plus, Rocket, Trash2 } from 'lucide-react';
+import { auth } from '@clerk/nextjs/server';
+import { GlassCard } from '@/components/GlassCard';
+import { createClient } from '@/lib/supabase-server';
+import { deleteProject } from '@/lib/database';
+import { revalidatePath } from 'next/cache';
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { useTranslation } from 'react-i18next';
-import { supabase } from '@/lib/supabase';
-import { SectionRenderer } from '@/components/engine/DynamicRenderer';
-import { ErrorBoundary } from '@/components/engine/ErrorBoundary';
-import { validateConfig } from '@/config/schema';
-import { ErrorCard } from '@/components/engine/ErrorCard';
-import type { AppConfig } from '@/config/schema';
-import appConfigJson from '@/config/appConfig.json';
-import {
-  LayoutDashboard,
-  LogOut,
-  Globe,
-  Cpu,
-  Zap,
-} from 'lucide-react';
-import { Button } from '@/components/ui/button';
+const fallbackProjects = [
+  { id: 'demo-crm', name: 'Pipeline CRM', description: 'Sales workspace with stages, lead scoring, and generated API routes.', created_at: new Date().toISOString() },
+  { id: 'demo-commerce', name: 'Commerce Grid', description: 'Premium product storefront with cart schema and inventory endpoints.', created_at: new Date().toISOString() },
+  { id: 'demo-chat', name: 'Relay Chat', description: 'Messaging UI with conversations, message tables, and assistant replies.', created_at: new Date().toISOString() },
+];
 
-export default function DashboardPage() {
-  const router = useRouter();
-  const { t, i18n } = useTranslation();
-  const [user, setUser] = useState<{ email?: string } | null>(null);
-  const [config, setConfig] = useState<AppConfig | null>(null);
-  const [configErrors, setConfigErrors] = useState<string[]>([]);
+async function getProjects() {
+  const { userId } = await auth();
+  if (!userId) return [];
 
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!session) {
-        router.replace('/auth');
-        return;
-      }
-      setUser(session.user);
-    });
+  try {
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from('projects')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(6);
+    
+    if (error) throw error;
+    return data;
+  } catch (err) {
+    console.error('[dashboard] failed to fetch projects', err);
+    return [];
+  }
+}
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (!session) {
-        router.replace('/auth');
-      } else {
-        setUser(session.user);
-      }
-    });
+export default async function DashboardPage() {
+  const projects = await getProjects();
 
-    return () => subscription.unsubscribe();
-  }, [router]);
-
-  useEffect(() => {
-    const result = validateConfig(appConfigJson);
-    if (result.success && result.data) {
-      setConfig(result.data);
-      setConfigErrors([]);
-    } else {
-      setConfig(null);
-      setConfigErrors(result.errors?.errors.map((e) => e.message) || ['Invalid configuration']);
+  async function handleDelete(formData: FormData) {
+    'use server';
+    const id = formData.get('id') as string;
+    if (id) {
+      await deleteProject(id);
+      revalidatePath('/dashboard');
     }
-  }, []);
-
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    router.replace('/auth');
-  };
-
-  const switchLanguage = (lang: string) => {
-    i18n.changeLanguage(lang);
-  };
-
-  if (!user || (!config && configErrors.length === 0)) {
-    return (
-      <div className="flex h-screen items-center justify-center bg-zinc-950">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-cyan-500 border-t-transparent" />
-      </div>
-    );
   }
 
-  const page = config?.layout.pages[0];
-  const supportedLangs = config?.metadata.supportedLanguages || ['en'];
-
   return (
-    <div className="min-h-screen bg-zinc-950 grid-bg">
-      {/* Top navigation */}
-      <header className="sticky top-0 z-50 border-b border-white/[0.06] bg-zinc-950/80 backdrop-blur-xl">
-        <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4 sm:px-6">
-          <div className="flex items-center gap-3">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-cyan-500/10 ring-1 ring-cyan-500/20">
-              <Cpu className="h-4 w-4 text-cyan-400" />
-            </div>
-            <span className="text-lg font-bold tracking-tight text-zinc-100">
-              <span className="text-cyan-400 neon-text">Nexus</span>Core
-            </span>
-            <span className="hidden items-center gap-1 rounded-full bg-cyan-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-cyan-400 ring-1 ring-cyan-500/20 sm:inline-flex">
-              <Zap className="h-3 w-3" />
-              Live
-            </span>
+    <div className="mx-auto max-w-7xl px-6 py-10">
+      <div className="mb-8 flex flex-col justify-between gap-5 lg:flex-row lg:items-end">
+        <div>
+          <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-1 text-xs font-black uppercase tracking-[0.22em] text-cyan-200">
+            <LayoutDashboard className="h-4 w-4" />
+            Command Center
           </div>
-
-          <div className="flex items-center gap-2">
-            {/* Language switcher */}
-            <div className="hidden items-center gap-1 rounded-lg border border-white/[0.06] bg-white/[0.02] p-1 sm:flex">
-              {supportedLangs.map((lang) => (
-                <button
-                  key={lang}
-                  onClick={() => switchLanguage(lang)}
-                  className={`rounded-md px-2 py-1 text-xs font-medium transition-all ${
-                    i18n.language === lang
-                      ? 'bg-cyan-500/20 text-cyan-400'
-                      : 'text-zinc-500 hover:text-zinc-300'
-                  }`}
-                >
-                  {lang.toUpperCase()}
-                </button>
-              ))}
-            </div>
-
-            <Globe
-              className="h-4 w-4 cursor-pointer text-zinc-600 transition-colors hover:text-cyan-400 sm:hidden"
-              onClick={() => {
-                const next = supportedLangs[(supportedLangs.indexOf(i18n.language) + 1) % supportedLangs.length];
-                switchLanguage(next);
-              }}
-            />
-
-            <div className="hidden h-5 w-px bg-white/[0.06] sm:block" />
-
-            <span className="hidden text-xs text-zinc-500 sm:block">
-              {user.email}
-            </span>
-
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={handleLogout}
-              className="h-8 w-8 text-zinc-500 hover:text-rose-400"
-            >
-              <LogOut className="h-4 w-4" />
-            </Button>
-          </div>
+          <h1 className="text-4xl font-black tracking-tight text-white">Project Dashboard</h1>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-white/48">Manage generated apps, recent prompts, deployment health, and builder activity from one workspace.</p>
         </div>
-      </header>
+        <Link href="/builder" className="inline-flex items-center justify-center gap-2 rounded-xl bg-cyan-400 px-5 py-3 text-sm font-black uppercase tracking-[0.18em] text-[#05070a]">
+          <Plus className="h-4 w-4" />
+          New Blueprint
+        </Link>
+      </div>
 
-      {/* Main content */}
-      <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8">
-        {configErrors.length > 0 ? (
-          <ErrorCard
-            componentType="AppConfig"
-            errors={configErrors}
-            missingProps={[]}
-          />
-        ) : page ? (
-          <div className="space-y-8">
-            {/* Page header */}
-            <div className="flex items-center gap-3">
-              <LayoutDashboard className="h-5 w-5 text-cyan-400" />
-              <h1 className="text-xl font-bold text-zinc-100">{page.title}</h1>
-            </div>
+      <div className="mb-8 grid gap-4 md:grid-cols-4">
+        {[
+          { label: 'Projects', value: projects.length, Icon: Boxes },
+          { label: 'Generations', value: 184, Icon: Activity },
+          { label: 'Deployments', value: 12, Icon: Rocket },
+          { label: 'Avg build', value: '4.8s', Icon: Clock },
+        ].map(({ label, value, Icon }) => (
+          <GlassCard key={label} className="rounded-2xl">
+            <Icon className="h-5 w-5 text-cyan-300" />
+            <strong className="mt-4 block text-3xl font-black text-white">{value}</strong>
+            <p className="mt-1 text-xs font-black uppercase tracking-[0.22em] text-white/35">{label}</p>
+          </GlassCard>
+        ))}
+      </div>
 
-            {/* Sections */}
-            {page.sections.map((section) => (
-              <ErrorBoundary key={section.id} componentId={section.id} componentType="Section">
-                <SectionRenderer section={section} />
-              </ErrorBoundary>
+      <div className="grid gap-6 lg:grid-cols-[1.4fr_0.6fr]">
+        <section className="space-y-4">
+          <h2 className="text-sm font-black uppercase tracking-[0.22em] text-white/40">Recent Projects</h2>
+          <div className="grid gap-4 md:grid-cols-2">
+            {projects.length === 0 ? (
+              <div className="col-span-full rounded-2xl border border-dashed border-white/10 p-10 text-center">
+                <p className="text-sm text-white/35">No projects found. Build your first blueprint!</p>
+              </div>
+            ) : (
+              projects.map((project: any) => (
+                <div key={project.id} className="group relative">
+                  <Link href={`/project/${project.id}`} className="block rounded-2xl border border-white/10 bg-white/[0.035] p-5 transition hover:border-cyan-400/30 hover:bg-white/[0.055]">
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <h3 className="text-xl font-black text-white">{project.name}</h3>
+                        <p className="mt-2 line-clamp-2 text-sm leading-6 text-white/45">{project.description}</p>
+                      </div>
+                      <ArrowUpRight className="h-5 w-5 text-white/25 transition group-hover:text-cyan-300" />
+                    </div>
+                    <div className="mt-5 flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.18em] text-cyan-200">
+                      <span className="h-2 w-2 rounded-full bg-cyan-300" />
+                      Ready for preview
+                    </div>
+                  </Link>
+                  <form action={handleDelete} className="absolute bottom-5 right-5 opacity-0 transition group-hover:opacity-100">
+                    <input type="hidden" name="id" value={project.id} />
+                    <button type="submit" className="flex h-8 w-8 items-center justify-center rounded-lg bg-rose-500/10 text-rose-500 hover:bg-rose-500 hover:text-white transition">
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </form>
+                </div>
+              ))
+            )}
+          </div>
+        </section>
+
+        <GlassCard className="rounded-2xl">
+          <h2 className="text-sm font-black uppercase tracking-[0.22em] text-white/40">Activity Feed</h2>
+          <div className="mt-5 space-y-4">
+            {['Generated CRM schema', 'Opened mobile preview', 'Copied API route', 'Saved project files'].map((item) => (
+              <div key={item} className="rounded-xl border border-white/5 bg-white/[0.025] p-3 text-sm text-white/55">{item}</div>
             ))}
           </div>
-        ) : (
-          <ErrorCard
-            componentType="Layout"
-            errors={['No pages defined in the configuration']}
-            missingProps={['pages']}
-          />
-        )}
-      </main>
-
-      {/* Footer */}
-      <footer className="border-t border-white/[0.04] py-6 text-center text-xs text-zinc-700">
-        Powered by NexusCore Low-Code Engine &middot; JSON Blueprint Driven
-      </footer>
+        </GlassCard>
+      </div>
     </div>
   );
 }

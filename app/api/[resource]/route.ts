@@ -1,26 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { createClient } from '@/lib/supabase-server';
 
-function getSupabaseClient() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
-}
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { resource: string } }
+  { params }: { params: Promise<{ resource: string }> }
 ) {
-  const resource = params.resource;
-  const supabase = getSupabaseClient();
+  const { resource } = await params;
+  const supabase = await createClient();
   const url = new URL(request.url);
   const id = url.searchParams.get('id');
 
   try {
     if (id) {
       const { data, error } = await supabase
-        .from(resource)
+        .from(resource as any)
         .select('*')
         .eq('id', id)
         .maybeSingle();
@@ -28,7 +24,7 @@ export async function GET(
       return NextResponse.json({ data });
     }
 
-    const { data, error } = await supabase.from(resource).select('*');
+    const { data, error } = await supabase.from(resource as any).select('*');
     if (error) throw error;
     return NextResponse.json({ data });
   } catch (err: unknown) {
@@ -39,15 +35,15 @@ export async function GET(
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { resource: string } }
+  { params }: { params: Promise<{ resource: string }> }
 ) {
-  const resource = params.resource;
-  const supabase = getSupabaseClient();
+  const { resource } = await params;
+  const supabase = await createClient();
 
   try {
     const body = await request.json();
     const { data, error } = await supabase
-      .from(resource)
+      .from(resource as any)
       .insert(body)
       .select()
       .maybeSingle();
@@ -61,10 +57,10 @@ export async function POST(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { resource: string } }
+  { params }: { params: Promise<{ resource: string }> }
 ) {
-  const resource = params.resource;
-  const supabase = getSupabaseClient();
+  const { resource } = await params;
+  const supabase = await createClient();
 
   try {
     const body = await request.json();
@@ -72,7 +68,7 @@ export async function PUT(
     if (!id) throw new Error('ID is required for updates');
 
     const { data, error } = await supabase
-      .from(resource)
+      .from(resource as any)
       .update(updates)
       .eq('id', id)
       .select()
@@ -87,10 +83,10 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { resource: string } }
+  { params }: { params: Promise<{ resource: string }> }
 ) {
-  const resource = params.resource;
-  const supabase = getSupabaseClient();
+  const { resource } = await params;
+  const supabase = await createClient();
 
   try {
     const url = new URL(request.url);
@@ -98,7 +94,7 @@ export async function DELETE(
     if (!id) throw new Error('ID is required for deletion');
 
     const { error } = await supabase
-      .from(resource)
+      .from(resource as any)
       .delete()
       .eq('id', id);
     if (error) throw error;
