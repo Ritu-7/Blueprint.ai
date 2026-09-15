@@ -1,137 +1,132 @@
-import { supabase } from './supabase';
-import type { DatabaseProject, ProjectInsert, ProjectUpdate } from '@/types/database';
+import type { ProjectFile } from '@/lib/templates';
+
+export type ProjectInsert = {
+  user_id: string;
+  name: string;
+  description?: string;
+  prompt?: string;
+  kind?: string;
+  ui_code?: string;
+  schema_code?: string;
+  api_code?: string;
+  readme_code?: string;
+  files?: ProjectFile[];
+  status?: string;
+};
+
+export type ProjectUpdate = Partial<ProjectInsert>;
+
+export type ProjectData = {
+  id: string;
+  user_id: string;
+  name: string;
+  description: string;
+  prompt: string;
+  kind: string;
+  ui_code: string;
+  schema_code: string;
+  api_code: string;
+  readme_code: string;
+  files: ProjectFile[];
+  status: string;
+  created_at: string;
+  updated_at: string;
+};
 
 /**
- * PROJECT OPERATIONS
+ * Client-side project operations — all go through the API routes.
  */
 
-export async function saveProject(project: ProjectInsert) {
-  const { data, error } = await supabase
-    .from('projects')
-    .insert(project)
-    .select()
-    .single();
-
-  if (error) {
-    console.error('[db] saveProject error:', error.message, error.details, error.hint);
-    throw error;
-  }
-  return data;
+export async function saveProject(project: ProjectInsert): Promise<ProjectData> {
+  const res = await fetch('/api/projects', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(project),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Failed to save project');
+  return data.data;
 }
 
-export async function updateProject(id: string, updates: ProjectUpdate) {
-  const { data, error } = await supabase
-    .from('projects')
-    .update(updates)
-    .eq('id', id)
-    .select()
-    .single();
-
-  if (error) {
-    console.error('[db] updateProject error:', error.message, error.details, error.hint);
-    throw error;
-  }
-  return data;
+export async function updateProject(id: string, updates: ProjectUpdate): Promise<ProjectData> {
+  const res = await fetch('/api/projects', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id, ...updates }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Failed to update project');
+  return data.data;
 }
 
-export async function fetchUserProjects(userId: string) {
-  const { data, error } = await supabase
-    .from('projects')
-    .select('*')
-    .eq('user_id', userId)
-    .order('updated_at', { ascending: false });
-
-  if (error) throw error;
-  return data;
-}
-
-export async function fetchProjectById(id: string) {
-  const { data, error } = await supabase
-    .from('projects')
-    .select('*')
-    .eq('id', id)
-    .single();
-
-  if (error) throw error;
-  return data;
-}
-
-export async function deleteProject(id: string) {
-  const { error } = await supabase
-    .from('projects')
-    .delete()
-    .eq('id', id);
-
-  if (error) throw error;
-}
-
-export async function countRecords(resource: string, filter?: Record<string, any>) {
-  let query = supabase.from(resource as any).select('*', { count: 'exact', head: true });
-
-  if (filter) {
-    Object.entries(filter).forEach(([key, value]) => {
-      query = query.eq(key, value);
-    });
-  }
-
-  const { count, error } = await query;
-  if (error) throw error;
-  return count || 0;
+export async function deleteProject(id: string): Promise<void> {
+  const res = await fetch(`/api/projects?id=${id}`, { method: 'DELETE' });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Failed to delete project');
 }
 
 /**
- * GENERIC OPERATIONS
+ * Generic CRUD operations — used by the DataTable engine components.
+ * All go through the generic /api/[resource] route.
  */
 
 export async function fetchAll(resource: string, filter?: Record<string, any>) {
-  let query = supabase.from(resource as any).select('*');
-
+  const params = new URLSearchParams();
   if (filter) {
     Object.entries(filter).forEach(([key, value]) => {
-      query = query.eq(key, value);
+      params.set(key, String(value));
     });
   }
-
-  const { data, error } = await query;
-  if (error) throw error;
-  return data;
+  const res = await fetch(`/api/${resource}?${params.toString()}`);
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Failed to fetch');
+  return data.data || [];
 }
 
 export async function fetchById(resource: string, id: string) {
-  const { data, error } = await supabase
-    .from(resource as any)
-    .select('*')
-    .eq('id', id)
-    .maybeSingle();
-  if (error) throw error;
-  return data;
+  const res = await fetch(`/api/${resource}?id=${id}`);
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Failed to fetch');
+  return data.data;
 }
 
 export async function createRecord(resource: string, record: Record<string, unknown>) {
-  const { data, error } = await supabase
-    .from(resource as any)
-    .insert(record as any)
-    .select()
-    .maybeSingle();
-  if (error) throw error;
-  return data;
+  const res = await fetch(`/api/${resource}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(record),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Failed to create');
+  return data.data;
 }
 
 export async function updateRecord(resource: string, id: string, record: Record<string, unknown>) {
-  const { data, error } = await supabase
-    .from(resource as any)
-    .update(record as any)
-    .eq('id', id)
-    .select()
-    .maybeSingle();
-  if (error) throw error;
-  return data;
+  const res = await fetch(`/api/${resource}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id, ...record }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Failed to update');
+  return data.data;
 }
 
 export async function deleteRecord(resource: string, id: string) {
-  const { error } = await supabase
-    .from(resource as any)
-    .delete()
-    .eq('id', id);
-  if (error) throw error;
+  const res = await fetch(`/api/${resource}?id=${id}`, { method: 'DELETE' });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Failed to delete');
+}
+
+export async function countRecords(resource: string, filter?: Record<string, any>): Promise<number> {
+  const params = new URLSearchParams({ count: 'true' });
+  if (filter) {
+    Object.entries(filter).forEach(([key, value]) => {
+      params.set(key, String(value));
+    });
+  }
+  const res = await fetch(`/api/${resource}?${params.toString()}`);
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Failed to count');
+  return data.count || 0;
 }
