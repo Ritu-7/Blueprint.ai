@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { supabase } from '@/lib/supabase';
+import { supabase } from '@/utils/supabase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { LogIn, UserPlus, Loader as Loader2 } from 'lucide-react';

@@ -1,0 +1,21 @@
+{
+  "metadata": {
+    "defaultLanguage": "en"
+  },
+  "localization": {
+    "en": {
+      "common.no_data": "No data"
+    }
+  },
+  "schema": {
+    "projects": {
+      "fields": {
+        "name": { "type": "text", "required": true },
+        "description": { "type": "text" },
+        "prompt": { "type": "text" },
+        "kind": { "type": "text", "default": "todo" },
+        "status": { "type": "text", "default": "active" }
+      }
+    }
+  }
+}
