@@ -5,7 +5,7 @@ import { Bot, Cloud, Rocket, ShieldCheck, Sparkles, Save } from 'lucide-react';
 import { useUser } from '@clerk/nextjs';
 import { toast } from 'sonner';
 import type { ProjectFile, TemplateKind } from '@/lib/templates';
-import { FileExplorer } from '@/components/builder/FileExplorer';
+import { FileExplorer } from '../../components/builder/FileExplorer';
 import { LivePreview } from '@/components/builder/LivePreview';
 import { PromptBox } from '@/components/builder/PromptBox';
 import type { BuilderTab } from '@/components/builder/BuilderTabs';
