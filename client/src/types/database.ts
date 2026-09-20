@@ -1,4 +1,4 @@
-import type { ProjectFile } from '@/lib/templates';
+import type { ProjectFile } from './project';
 
 export type ProjectStatus = 'draft' | 'generating' | 'active' | 'archived';
 

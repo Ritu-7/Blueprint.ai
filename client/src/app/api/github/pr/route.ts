@@ -1,34 +1,19 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
+import { GithubService } from '@/services/githubService';
+import { pullRequestGithubSchema } from '@/validators/github';
+import { validateRequestBody } from '@/lib/validation/validate';
+import { apiSuccess } from '@/lib/api/response';
+import { handleApiError } from '@/lib/errors/handler';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json().catch(() => ({}));
-    const branchName = body.branchName || 'feature/blueprint-ai';
-    const baseBranch = body.baseBranch || 'main';
-    const title = body.title || 'feat: AI Blueprint generated updates';
-
-    const token = process.env.GITHUB_TOKEN;
-    const username = process.env.GITHUB_USERNAME;
-
-    if (!token || !username) {
-      // Graceful demo response if GitHub token is not configured
-      return NextResponse.json({
-        success: true,
-        prUrl: 'https://github.com/user/project/pull/1',
-        message: 'Simulated Pull Request created successfully (configure GITHUB_TOKEN for live PRs)',
-      });
-    }
-
-    return NextResponse.json({
-      success: true,
-      prUrl: `https://github.com/${username}/project/pull/1`,
-      message: 'Pull request created successfully',
-    });
+    const input = await validateRequestBody(pullRequestGithubSchema, req);
+    const result = await GithubService.createPullRequest(input);
+    return apiSuccess(result);
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Failed to create pull request';
-    return NextResponse.json({ success: false, error: message }, { status: 500 });
+    return handleApiError(error, 'api/github/pr');
   }
 }
