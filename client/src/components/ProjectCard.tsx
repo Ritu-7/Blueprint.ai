@@ -40,7 +40,7 @@ export function ProjectCard({ project }: ProjectCardProps) {
       </div>
 
       <Link 
-        href={`/project/${project.id}`}
+        href={`/projects/${project.id}/overview`}
         className="mt-auto flex items-center justify-center gap-2 w-full py-3 rounded-lg bg-white/5 border border-white/10 text-white text-xs font-bold uppercase tracking-widest hover:bg-cyan-500 hover:text-background hover:border-cyan-500 transition-all group/btn"
       >
         Open Project
