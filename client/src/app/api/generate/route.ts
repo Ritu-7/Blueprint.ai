@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
 import { AIService } from '@/services/aiService';
+import { BlueprintService } from '@/services/blueprintService';
 import { generatePromptSchema } from '@/validators/project';
 import { validateRequestBody } from '@/lib/validation/validate';
 import { apiSuccess } from '@/lib/api/response';
@@ -11,17 +12,27 @@ export const dynamic = 'force-dynamic';
 export async function POST(request: NextRequest) {
   try {
     const { prompt } = await validateRequestBody(generatePromptSchema, request);
-    const generated = AIService.generateProject(prompt);
+    const url = new URL(request.url);
+    const projectId = url.searchParams.get('projectId');
+
+    // Generate Zod-validated 12-section structured blueprint
+    const structuredBlueprint = AIService.generateProject(prompt);
+
+    let versionInfo = null;
+    if (projectId) {
+      versionInfo = await BlueprintService.saveBlueprint(projectId, prompt, structuredBlueprint);
+    }
 
     return apiSuccess({
-      ...generated,
+      ...structuredBlueprint,
       project: {
-        ...generated,
+        ...structuredBlueprint,
         prompt,
-        ui_code: generated.uiCode,
-        schema_code: generated.schema,
-        api_code: generated.api,
+        ui_code: structuredBlueprint.uiCode,
+        schema_code: structuredBlueprint.schema,
+        api_code: structuredBlueprint.api,
       },
+      version: versionInfo,
     });
   } catch (error: unknown) {
     return handleApiError(error, 'api/generate');
