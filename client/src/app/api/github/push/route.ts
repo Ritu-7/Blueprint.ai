@@ -8,6 +8,11 @@ import { handleApiError } from '@/lib/errors/handler';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
+/**
+ * POST /api/github/push
+ * Pushes project files to a GitHub repository.
+ * GitHub token is consumed entirely server-side.
+ */
 export async function POST(req: NextRequest) {
   try {
     const input = await validateRequestBody(pushGithubSchema, req);
