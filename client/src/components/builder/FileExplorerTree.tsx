@@ -1,18 +1,9 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
-  ChevronDown,
-  ChevronRight,
-  FileCode2,
-  FileJson,
-  FilePlus,
-  FileText,
-  Folder,
-  FolderPlus,
-  RefreshCw,
-  Search,
-  Trash2,
+  ChevronDown, ChevronRight, FileCode2, FileJson, FilePlus,
+  FileText, Folder, RefreshCw, Search, Trash2
 } from 'lucide-react';
 import { FaGithub } from 'react-icons/fa';
 import type { ProjectFile } from '@/types/project';
@@ -25,6 +16,9 @@ type TreeNode = {
   file?: ProjectFile;
 };
 
+/**
+ * Builds a hierarchical tree from flat ProjectFile array, sorting folders first then files alphabetically.
+ */
 function buildTree(files: ProjectFile[]) {
   const root: TreeNode = { name: 'root', path: '', children: [] };
 
@@ -46,24 +40,41 @@ function buildTree(files: ProjectFile[]) {
     });
   });
 
+  // Sort helper: Folders first, then alphabetically
+  const sortNodes = (nodes: TreeNode[]) => {
+    nodes.sort((a, b) => {
+      const aIsFolder = !a.file;
+      const bIsFolder = !b.file;
+      if (aIsFolder && !bIsFolder) return -1;
+      if (!aIsFolder && bIsFolder) return 1;
+      return a.name.localeCompare(b.name);
+    });
+    nodes.forEach((n) => {
+      if (n.children.length > 0) sortNodes(n.children);
+    });
+  };
+
+  sortNodes(root.children);
   return root.children;
 }
 
-function FileIcon({ file }: { file: ProjectFile }) {
-  if (file.language === 'json') return <FileJson className="h-4 w-4 text-yellow-300" />;
-  if (file.language === 'md') return <FileText className="h-4 w-4 text-amber-400" />;
-  if (file.language === 'sql') return <FileText className="h-4 w-4 text-cyan-300" />;
-  return <FileCode2 className="h-4 w-4 text-cyan-200" />;
+function FileIcon({ language }: { language: string }) {
+  if (language === 'json') return <FileJson className="h-4 w-4 text-amber-300 shrink-0" />;
+  if (language === 'md') return <FileText className="h-4 w-4 text-emerald-400 shrink-0" />;
+  if (language === 'sql') return <FileText className="h-4 w-4 text-purple-300 shrink-0" />;
+  return <FileCode2 className="h-4 w-4 text-cyan-400 shrink-0" />;
 }
 
 function TreeItem({
   node,
+  depth = 0,
   activePath,
   dirtyPaths,
   onSelect,
   onDeleteFile,
 }: {
   node: TreeNode;
+  depth?: number;
   activePath?: string;
   dirtyPaths: Set<string>;
   onSelect: (file: ProjectFile) => void;
@@ -72,23 +83,28 @@ function TreeItem({
   const [open, setOpen] = useState(true);
   const isFolder = !node.file;
 
+  const indentStyle = { paddingLeft: `${depth * 12 + 12}px` };
+
   if (isFolder) {
     return (
       <div>
         <button
           onClick={() => setOpen((v) => !v)}
-          className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs font-bold text-white/60 hover:bg-white/5 hover:text-white"
+          style={indentStyle}
+          className="flex h-8 w-full items-center gap-2 text-left text-xs font-bold text-white/60 hover:bg-white/[0.04] hover:text-white transition-colors"
         >
-          {open ? <ChevronDown className="h-3.5 w-3.5 text-white/40" /> : <ChevronRight className="h-3.5 w-3.5 text-white/40" />}
-          <Folder className="h-4 w-4 text-cyan-400/80" />
+          {open ? <ChevronDown className="h-3.5 w-3.5 text-white/40 shrink-0" /> : <ChevronRight className="h-3.5 w-3.5 text-white/40 shrink-0" />}
+          <Folder className="h-4 w-4 text-cyan-400/80 shrink-0" />
           <span className="truncate">{node.name}</span>
         </button>
+
         {open && (
-          <div className="ml-3 border-l border-white/5 pl-1">
+          <div>
             {node.children.map((child) => (
               <TreeItem
                 key={child.path}
                 node={child}
+                depth={depth + 1}
                 activePath={activePath}
                 dirtyPaths={dirtyPaths}
                 onSelect={onSelect}
@@ -102,28 +118,31 @@ function TreeItem({
   }
 
   const isDirty = node.file ? dirtyPaths.has(node.file.path) : false;
+  const isActive = activePath === node.file!.path;
 
   return (
     <div
+      style={indentStyle}
       className={cn(
-        'group flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-xs transition cursor-pointer',
-        activePath === node.file!.path
-          ? 'bg-cyan-400/10 text-cyan-100 font-medium'
-          : 'text-white/50 hover:bg-white/5 hover:text-white'
+        'group flex h-8 w-full items-center justify-between text-xs transition-all cursor-pointer select-none border-l-2',
+        isActive
+          ? 'bg-cyan-400/10 border-l-cyan-400 text-cyan-300 font-medium'
+          : 'border-l-transparent text-white/50 hover:bg-white/[0.04] hover:text-white'
       )}
       onClick={() => onSelect(node.file!)}
     >
       <div className="flex min-w-0 items-center gap-2">
-        <FileIcon file={node.file!} />
+        <FileIcon language={node.file!.language} />
         <span className="truncate">{node.name}</span>
         {isDirty && <span className="h-1.5 w-1.5 rounded-full bg-amber-400 shrink-0" title="Unsaved changes" />}
       </div>
+
       <button
         onClick={(e) => {
           e.stopPropagation();
           onDeleteFile(node.file!.path);
         }}
-        className="opacity-0 group-hover:opacity-100 text-white/30 hover:text-red-400 transition"
+        className="opacity-0 group-hover:opacity-100 p-1 text-white/30 hover:text-red-400 transition-opacity mr-2"
         title="Delete file"
       >
         <Trash2 className="h-3.5 w-3.5" />
@@ -174,26 +193,27 @@ export function FileExplorerTree({
   };
 
   return (
-    <aside className="flex h-full min-h-0 flex-col border-r border-white/10 bg-[#06090e]">
-      {/* Header */}
-      <div className="flex items-center justify-between border-b border-white/10 px-3 py-2.5 bg-white/[0.02]">
+    <aside className="flex h-full min-h-0 flex-col border-r border-white/[0.06] bg-[#0f131c]">
+      {/* Sticky Header */}
+      <div className="flex items-center justify-between border-b border-white/[0.06] px-3 py-3 bg-[#0f131c] shrink-0">
         <div className="flex items-center gap-2 min-w-0">
           <FaGithub className="h-4 w-4 text-cyan-400 shrink-0" />
-          <span className="truncate text-xs font-bold uppercase tracking-wider text-white/70">
+          <span className="truncate text-xs font-bold uppercase tracking-wider text-white">
             {repoName || 'Project Files'}
           </span>
         </div>
-        <div className="flex items-center gap-1">
+
+        <div className="flex items-center gap-1 shrink-0">
           <button
             onClick={onSyncRepo}
-            className="p-1 rounded text-white/40 hover:text-cyan-300 hover:bg-white/5 transition"
-            title="Sync with GitHub Repository"
+            className="p-1.5 rounded-lg text-white/40 hover:text-white hover:bg-white/[0.06] transition-colors"
+            title="Sync Repo"
           >
             <RefreshCw className="h-3.5 w-3.5" />
           </button>
           <button
             onClick={() => setIsCreating(true)}
-            className="p-1 rounded text-white/40 hover:text-cyan-300 hover:bg-white/5 transition"
+            className="p-1.5 rounded-lg text-white/40 hover:text-white hover:bg-white/[0.06] transition-colors"
             title="New File"
           >
             <FilePlus className="h-3.5 w-3.5" />
@@ -201,23 +221,23 @@ export function FileExplorerTree({
         </div>
       </div>
 
-      {/* Search Input */}
-      <div className="px-3 py-2 border-b border-white/5">
+      {/* 36px Search Input */}
+      <div className="p-3 border-b border-white/[0.06] shrink-0">
         <div className="relative">
-          <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-white/30" />
+          <Search className="absolute left-3 top-2.5 h-4 w-4 text-white/30" />
           <input
             type="text"
             placeholder="Search files..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full rounded-md border border-white/10 bg-white/5 pl-8 pr-3 py-1.5 text-xs text-white placeholder-white/30 focus:border-cyan-400 focus:outline-none"
+            className="h-9 w-full rounded-lg border border-white/[0.06] bg-[#151a26] pl-9 pr-3 text-xs text-white placeholder-white/30 focus:border-cyan-400 focus:outline-none transition-colors"
           />
         </div>
       </div>
 
-      {/* New File Inline Form */}
+      {/* Inline Create Form */}
       {isCreating && (
-        <form onSubmit={handleCreateSubmit} className="p-2 border-b border-white/10 bg-cyan-950/20">
+        <form onSubmit={handleCreateSubmit} className="p-3 border-b border-white/[0.06] bg-cyan-950/20 shrink-0">
           <div className="flex items-center gap-2">
             <input
               type="text"
@@ -225,18 +245,15 @@ export function FileExplorerTree({
               placeholder="e.g. src/components/Header.tsx"
               value={newFilePath}
               onChange={(e) => setNewFilePath(e.target.value)}
-              className="flex-1 rounded border border-white/20 bg-black/40 px-2 py-1 text-xs text-white placeholder-white/30 focus:border-cyan-400 focus:outline-none"
+              className="h-8 flex-1 rounded-md border border-white/20 bg-black/40 px-2.5 text-xs text-white placeholder-white/30 focus:border-cyan-400 focus:outline-none"
             />
-            <button
-              type="submit"
-              className="rounded bg-cyan-500 px-2.5 py-1 text-xs font-bold text-black hover:bg-cyan-400"
-            >
+            <button type="submit" className="h-8 rounded-md bg-cyan-400 px-3 text-xs font-bold text-black hover:bg-cyan-300">
               Add
             </button>
             <button
               type="button"
               onClick={() => setIsCreating(false)}
-              className="rounded border border-white/10 px-2 py-1 text-xs text-white/40 hover:text-white"
+              className="h-8 rounded-md border border-white/10 px-2.5 text-xs text-white/50 hover:text-white"
             >
               Cancel
             </button>
@@ -244,11 +261,11 @@ export function FileExplorerTree({
         </form>
       )}
 
-      {/* Tree Content */}
-      <div className="min-h-0 flex-1 overflow-auto p-2">
+      {/* Internal Scroll Tree */}
+      <div className="min-h-0 flex-1 overflow-y-auto py-2 custom-scrollbar">
         {tree.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-white/10 p-4 text-center text-xs text-white/30">
-            {searchQuery ? 'No matching files found' : 'No project files'}
+          <div className="p-4 text-center text-xs text-white/30">
+            {searchQuery ? 'No matching files' : 'No project files'}
           </div>
         ) : (
           tree.map((node) => (

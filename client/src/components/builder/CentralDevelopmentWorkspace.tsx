@@ -1,21 +1,20 @@
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { Bot, Save, Sparkles, FolderGit2, Check, Download, ExternalLink, GitBranch, AlertTriangle } from 'lucide-react';
-import { FaGithub } from 'react-icons/fa';
 import { cn } from '@/utils/utils';
 import { useUser } from '@clerk/nextjs';
 import { toast } from 'sonner';
 import type { ProjectFile } from '@/types/project';
+
+import { TopNav } from './TopNav';
+import { WorkspaceHeader } from './WorkspaceHeader';
 import { FileExplorerTree } from './FileExplorerTree';
 import { CodeEditorWorkspace } from './CodeEditorWorkspace';
 import { AIEngineeringAssistant } from './AIEngineeringAssistant';
 import { BottomWorkspaceDock, TerminalLog, ProblemItem } from './BottomWorkspaceDock';
 import { LivePreview } from './LivePreview';
-import { GithubActions } from './GithubActions';
 import { GithubModal } from './GithubModal';
-import { generateReadme } from './ReadmeViewer';
-import { updateProject, saveProject } from '@/lib/database';
+import { updateProject } from '@/lib/database';
 
 export function CentralDevelopmentWorkspace({
   initialProject,
@@ -35,6 +34,12 @@ export function CentralDevelopmentWorkspace({
   // Edited content buffers & unsaved changes tracking
   const [contentMap, setContentMap] = useState<Record<string, string>>({});
   const [dirtyPaths, setDirtyPaths] = useState<Set<string>>(new Set());
+
+  // Resizable Panel States
+  const [leftWidth, setLeftWidth] = useState(260);
+  const [rightWidth, setRightWidth] = useState(360);
+  const [isLeftCollapsed, setIsLeftCollapsed] = useState(false);
+  const [isRightCollapsed, setIsRightCollapsed] = useState(false);
 
   // UI Panel toggles
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
@@ -78,7 +83,6 @@ export function CentralDevelopmentWorkspace({
     }
   }, [initialProject, activeFile]);
 
-  // Content map sync for active file
   useEffect(() => {
     if (files.length > 0 && !activeFile) {
       setActiveFile(files[0]);
@@ -86,7 +90,7 @@ export function CentralDevelopmentWorkspace({
     }
   }, [files, activeFile]);
 
-  // Real-time problem checking across modified content
+  // Real-time problem checking
   const problems = useMemo(() => {
     const list: ProblemItem[] = [];
     files.forEach((file) => {
@@ -129,7 +133,7 @@ export function CentralDevelopmentWorkspace({
     }
   };
 
-  // Change File Content in Editor
+  // Change File Content
   const handleChangeContent = (path: string, newContent: string) => {
     setContentMap((prev) => ({ ...prev, [path]: newContent }));
     setDirtyPaths((prev) => new Set(prev).add(path));
@@ -152,13 +156,12 @@ export function CentralDevelopmentWorkspace({
     addLog('success', `Saved changes to ${path}`);
     toast.success(`Saved ${path}`);
 
-    // Persist to Supabase if project exists
     if (project?.id) {
       setIsSaving(true);
       try {
         await updateProject(project.id, { files: nextFiles });
         if (onProjectUpdate) onProjectUpdate({ ...project, files: nextFiles });
-      } catch (err) {
+      } catch {
         addLog('error', `Failed to persist ${path} to database`);
       } finally {
         setIsSaving(false);
@@ -220,7 +223,7 @@ export function CentralDevelopmentWorkspace({
         handleChangeContent(path, formatted);
         toast.success('Formatted JSON');
         addLog('info', `Formatted JSON structure in ${path}`);
-      } catch (e) {
+      } catch {
         toast.error('Cannot format invalid JSON');
       }
     } else {
@@ -235,7 +238,7 @@ export function CentralDevelopmentWorkspace({
     toast.success('Changes committed to git timeline');
   };
 
-  // Sync with Repository
+  // Sync Repo
   const handleSyncRepo = () => {
     addLog('info', 'Synchronizing workspace with GitHub repository...');
     setTimeout(() => {
@@ -244,88 +247,67 @@ export function CentralDevelopmentWorkspace({
     }, 800);
   };
 
+  // Dynamic Column Grid Styles
+  const gridColumnsStyle = useMemo(() => {
+    const leftCol = isLeftCollapsed ? '0px' : `${leftWidth}px`;
+    const rightCol = isRightCollapsed ? '0px' : `${rightWidth}px`;
+    return { gridTemplateColumns: `${leftCol} 1fr ${rightCol}` };
+  }, [leftWidth, rightWidth, isLeftCollapsed, isRightCollapsed]);
+
   return (
-    <div className="flex h-[calc(100vh-64px)] flex-col bg-[#05070a] overflow-hidden">
-      {/* Top Workspace Header */}
-      <div className="flex flex-wrap items-center justify-between border-b border-white/10 bg-[#090c12] px-4 py-2.5">
-        <div className="flex items-center gap-3 min-w-0">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-cyan-400 text-black font-bold shadow-[0_0_16px_rgba(0,243,255,0.3)] shrink-0">
-            <FolderGit2 className="h-4 w-4" />
-          </div>
-          <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <h1 className="truncate text-sm font-black text-white">{project?.name || 'Blueprint Workspace'}</h1>
-              <span className="flex items-center gap-1 rounded bg-white/5 border border-white/10 px-2 py-0.5 text-[10px] text-white/50 font-mono">
-                <GitBranch className="h-3 w-3 text-cyan-400" /> main
-              </span>
-            </div>
-            <p className="truncate text-[11px] text-white/40">{project?.description || 'Central AI Development Workspace'}</p>
-          </div>
+    <div className="flex h-screen w-screen flex-col bg-[#0a0d14] overflow-hidden">
+      {/* 1. Top Navigation Bar (64px) */}
+      <TopNav />
 
-          {/* Saved Badge */}
-          <div className="flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white/40">
-            {isSaving ? (
-              <>
-                <div className="h-1.5 w-1.5 rounded-full bg-amber-400 animate-pulse" />
-                <span className="text-amber-300">Saving...</span>
-              </>
-            ) : dirtyPaths.size > 0 ? (
-              <>
-                <div className="h-1.5 w-1.5 rounded-full bg-amber-400" />
-                <span className="text-amber-300">{dirtyPaths.size} Unsaved</span>
-              </>
-            ) : (
-              <>
-                <Check className="h-3 w-3 text-emerald-400" />
-                <span className="text-emerald-400">Saved</span>
-              </>
-            )}
-          </div>
-        </div>
+      {/* 2. Workspace Header (72px) */}
+      <WorkspaceHeader
+        projectName={project?.name}
+        projectDescription={project?.description}
+        branchName="main"
+        isSaving={isSaving}
+        dirtyCount={dirtyPaths.size}
+        onPushGithub={() => setIsGithubModalOpen(true)}
+        onOpenPR={async () => {
+          addLog('info', 'Opening Pull Request on GitHub...');
+          toast.success('Pull request opened!');
+        }}
+        onCommit={() => handleCommitChanges('Manual commit from toolbar')}
+        onViewReadme={() => {
+          const readme = files.find((f) => f.name === 'README.md');
+          if (readme) handleSelectFile(readme);
+        }}
+        onExport={async () => {
+          addLog('info', 'Exporting project archive zip...');
+          toast.success('Project zip downloaded!');
+        }}
+        onRegenerate={() => {
+          addLog('info', 'Regenerating project blueprint...');
+          toast.info('Regenerating project blueprint');
+        }}
+        onDeploy={() => {
+          addLog('info', 'Triggering edge deployment...');
+          toast.success('Deployment queued');
+        }}
+      />
 
-        {/* GitHub & Action Triggers */}
-        <GithubActions
-          onPush={() => setIsGithubModalOpen(true)}
-          onPR={async () => {
-            addLog('info', 'Opening Pull Request on GitHub...');
-            toast.success('Pull request opened!');
-          }}
-          onExport={async () => {
-            addLog('info', 'Exporting project archive zip...');
-            toast.success('Project zip downloaded!');
-          }}
-          onCommit={() => handleCommitChanges('Manual commit from toolbar')}
-          onDeploy={() => {
-            addLog('info', 'Triggering edge deployment...');
-            toast.success('Deployment queued');
-          }}
-          onRegenerate={() => {
-            addLog('info', 'Regenerating project blueprint...');
-          }}
-          onViewReadme={() => {
-            const readme = files.find((f) => f.name === 'README.md');
-            if (readme) handleSelectFile(readme);
-          }}
-          isGenerating={false}
-        />
-      </div>
-
-      {/* Main Workspace Body (3 Columns + Split Preview) */}
-      <div className="grid flex-1 min-h-0 grid-cols-1 lg:grid-cols-[240px_1fr_320px]">
-        {/* Left Column: File Explorer */}
-        <FileExplorerTree
-          files={files}
-          activeFile={activeFile}
-          dirtyPaths={dirtyPaths}
-          repoName={project?.name}
-          onSelect={handleSelectFile}
-          onCreateFile={handleCreateFile}
-          onDeleteFile={handleDeleteFile}
-          onSyncRepo={handleSyncRepo}
-        />
+      {/* 3. Main Workspace Area (1fr) */}
+      <div className="grid flex-1 min-h-0 relative overflow-hidden" style={gridColumnsStyle}>
+        {/* Left Column: File Explorer (260px) */}
+        {!isLeftCollapsed && (
+          <FileExplorerTree
+            files={files}
+            activeFile={activeFile}
+            dirtyPaths={dirtyPaths}
+            repoName={project?.name}
+            onSelect={handleSelectFile}
+            onCreateFile={handleCreateFile}
+            onDeleteFile={handleDeleteFile}
+            onSyncRepo={handleSyncRepo}
+          />
+        )}
 
         {/* Center Column: Multi-tab Code Editor + Split Preview */}
-        <div className="flex h-full min-h-0 flex-col relative">
+        <div className="flex h-full min-h-0 flex-col relative overflow-hidden bg-[#0a0d14]">
           <div className={cn('flex-1 min-h-0', isPreviewOpen && 'h-1/2 flex-none')}>
             <CodeEditorWorkspace
               activeFile={activeFile}
@@ -363,17 +345,19 @@ export function CentralDevelopmentWorkspace({
           )}
         </div>
 
-        {/* Right Column: AI Engineering Assistant */}
-        <AIEngineeringAssistant
-          activeFile={activeFile}
-          activeFileContent={activeFile ? contentMap[activeFile.path] ?? activeFile.content : ''}
-          projectFiles={files}
-          projectName={project?.name}
-          onApplyCode={handleApplyAICode}
-        />
+        {/* Right Column: AI Engineering Assistant (360px) */}
+        {!isRightCollapsed && (
+          <AIEngineeringAssistant
+            activeFile={activeFile}
+            activeFileContent={activeFile ? contentMap[activeFile.path] ?? activeFile.content : ''}
+            projectFiles={files}
+            projectName={project?.name}
+            onApplyCode={handleApplyAICode}
+          />
+        )}
       </div>
 
-      {/* Bottom Dock: Terminal / Problems / Git Changes / Tests */}
+      {/* 4. Bottom Dock: Terminal / Problems / Git Changes / Tests (240px) */}
       <BottomWorkspaceDock
         isExpanded={isBottomDockExpanded}
         onToggleExpand={() => setIsBottomDockExpanded((v) => !v)}
