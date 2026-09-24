@@ -3,7 +3,6 @@ import { logger } from '@/lib/logger/logger';
 import {
   SKIP_DIRS,
   SKIP_EXTENSIONS,
-  HIGH_PRIORITY_FILES,
   MAX_FILE_BYTES,
 } from '@/validators/codebaseAnalysis';
 import {
@@ -11,6 +10,8 @@ import {
   type CodeReviewResult,
   type ReviewJob,
   type StartReviewInput,
+  type FindingStatus,
+  type UpdateFindingStatusInput,
 } from '@/validators/codeReview';
 
 const reviewJobStore: Record<string, ReviewJob> = {};
@@ -30,37 +31,31 @@ function githubHeaders(): HeadersInit {
   };
 }
 
-interface TreeEntry {
-  path: string;
-  type: 'blob' | 'tree';
-  size?: number;
-  sha: string;
+async function fetchPRFiles(owner: string, repo: string, prNumber: number): Promise<Array<{ filename: string; patch?: string; contentsUrl?: string }>> {
+  const res = await fetch(`${GITHUB_API}/repos/${owner}/${repo}/pulls/${prNumber}/files`, {
+    headers: githubHeaders(),
+    cache: 'no-store',
+  });
+  if (!res.ok) throw new Error(`Failed to fetch PR #${prNumber} files: ${res.status}`);
+  const files = await res.json();
+  return files.map((f: any) => ({ filename: f.filename, patch: f.patch, contentsUrl: f.contents_url }));
 }
 
-async function fetchFullTree(owner: string, repo: string, branch: string): Promise<TreeEntry[]> {
-  const branchRes = await fetch(
-    `${GITHUB_API}/repos/${owner}/${repo}/git/ref/heads/${branch}`,
-    { headers: githubHeaders(), cache: 'no-store' }
-  );
-  if (!branchRes.ok) throw new Error(`Failed to fetch branch ${branch}: ${branchRes.status}`);
-  const branchData = await branchRes.json();
-  const treeSha = branchData.object?.sha;
-  if (!treeSha) throw new Error(`Could not resolve SHA for branch: ${branch}`);
-
-  const treeRes = await fetch(
-    `${GITHUB_API}/repos/${owner}/${repo}/git/trees/${treeSha}?recursive=1`,
-    { headers: githubHeaders(), cache: 'no-store' }
-  );
-  if (!treeRes.ok) throw new Error(`Failed to fetch tree: ${treeRes.status}`);
-  const { tree } = await treeRes.json();
-  return tree as TreeEntry[];
+async function fetchCommitFiles(owner: string, repo: string, sha: string): Promise<Array<{ filename: string; patch?: string }>> {
+  const res = await fetch(`${GITHUB_API}/repos/${owner}/${repo}/commits/${sha}`, {
+    headers: githubHeaders(),
+    cache: 'no-store',
+  });
+  if (!res.ok) throw new Error(`Failed to fetch commit ${sha}: ${res.status}`);
+  const data = await res.json();
+  return (data.files || []).map((f: any) => ({ filename: f.filename, patch: f.patch }));
 }
 
 async function fetchFileContent(owner: string, repo: string, path: string): Promise<string | null> {
-  const res = await fetch(
-    `${GITHUB_API}/repos/${owner}/${repo}/contents/${encodeURIComponent(path)}`,
-    { headers: githubHeaders(), cache: 'no-store' }
-  );
+  const res = await fetch(`${GITHUB_API}/repos/${owner}/${repo}/contents/${encodeURIComponent(path)}`, {
+    headers: githubHeaders(),
+    cache: 'no-store',
+  });
   if (!res.ok) return null;
   const data = await res.json();
   if (data.encoding !== 'base64' || !data.content) return null;
@@ -69,19 +64,6 @@ async function fetchFileContent(owner: string, repo: string, path: string): Prom
   } catch {
     return null;
   }
-}
-
-function shouldSkipEntry(entry: TreeEntry): boolean {
-  if (entry.type !== 'blob') return true;
-  const parts = entry.path.split('/');
-  for (let i = 0; i < parts.length - 1; i++) {
-    if (SKIP_DIRS.has(parts[i])) return true;
-  }
-  const filename = parts[parts.length - 1];
-  const extParts = filename.split('.');
-  const ext = extParts[extParts.length - 1]?.toLowerCase() ?? '';
-  if (SKIP_EXTENSIONS.has(ext)) return true;
-  return false;
 }
 
 async function callGemini(prompt: string): Promise<string> {
@@ -114,7 +96,8 @@ async function callGemini(prompt: string): Promise<string> {
 }
 
 async function runReview(jobId: string, input: StartReviewInput): Promise<void> {
-  const { owner, repo, branch } = input;
+  const { owner, repo, branch, targetType, prNumber, commitSha, filePaths } = input;
+
   const updateProgress = (progress: number, message: string) => {
     if (reviewJobStore[jobId]) {
       reviewJobStore[jobId] = { ...reviewJobStore[jobId], progress, progressMessage: message };
@@ -123,60 +106,101 @@ async function runReview(jobId: string, input: StartReviewInput): Promise<void> 
   };
 
   try {
-    updateProgress(10, 'Fetching file tree...');
-    const tree = await fetchFullTree(owner, repo, branch);
-    const eligible = tree.filter((e) => !shouldSkipEntry(e)).slice(0, 25);
+    let diffContext = '';
 
-    updateProgress(30, `Inspecting ${eligible.length} key source files...`);
-    const files: Array<{ path: string; content: string }> = [];
+    if (targetType === 'pull_request' && prNumber) {
+      updateProgress(15, `Fetching Pull Request #${prNumber} diff...`);
+      const prFiles = await fetchPRFiles(owner, repo, prNumber);
+      diffContext = prFiles
+        .map((f) => `File: ${f.filename}\nPatch:\n${f.patch || 'No patch hunk'}`)
+        .join('\n\n');
+    } else if (targetType === 'commit' && commitSha) {
+      updateProgress(15, `Fetching commit ${commitSha.slice(0, 7)} diff...`);
+      const commitFiles = await fetchCommitFiles(owner, repo, commitSha);
+      diffContext = commitFiles
+        .map((f) => `File: ${f.filename}\nPatch:\n${f.patch || 'No patch'}`)
+        .join('\n\n');
+    } else if (targetType === 'selected_files' && filePaths && filePaths.length > 0) {
+      updateProgress(15, `Fetching ${filePaths.length} selected file(s)...`);
+      const contents = await Promise.all(
+        filePaths.slice(0, 15).map(async (p) => {
+          const c = await fetchFileContent(owner, repo, p);
+          return c ? `File: ${p}\nContent:\n${c.slice(0, 3000)}` : null;
+        })
+      );
+      diffContext = contents.filter(Boolean).join('\n\n');
+    } else {
+      updateProgress(15, 'Fetching repository key files for full audit...');
+      const treeRes = await fetch(`${GITHUB_API}/repos/${owner}/${repo}/git/trees/${branch}?recursive=1`, {
+        headers: githubHeaders(),
+        cache: 'no-store',
+      });
+      if (treeRes.ok) {
+        const { tree } = await treeRes.json();
+        const eligible = (tree as Array<{ path: string; type: string }>).filter(
+          (e) => e.type === 'blob' && !SKIP_DIRS.has(e.path.split('/')[0])
+        ).slice(0, 20);
 
-    for (let i = 0; i < eligible.length; i++) {
-      const content = await fetchFileContent(owner, repo, eligible[i].path);
-      if (content) {
-        files.push({ path: eligible[i].path, content });
+        const contents = await Promise.all(
+          eligible.map(async (f) => {
+            const c = await fetchFileContent(owner, repo, f.path);
+            return c ? `File: ${f.path}\n\`\`\`\n${c.slice(0, 2500)}\n\`\`\`` : null;
+          })
+        );
+        diffContext = contents.filter(Boolean).join('\n\n');
       }
     }
 
-    updateProgress(60, 'Synthesizing code quality & security findings via Gemini...');
-    const codeContext = files.map((f) => `File: ${f.path}\n\`\`\`\n${f.content.slice(0, 3000)}\n\`\`\``).join('\n\n');
+    updateProgress(50, 'Analyzing code patterns across 7 quality & security dimensions...');
 
-    const prompt = `You are a Principal Software Architect and Security Auditor reviewing ${owner}/${repo} (${branch}).
+    const prompt = `You are a Principal Security Architect and Senior Code Reviewer analyzing code changes in ${owner}/${repo}.
 
-Files Analyzed:
-${codeContext}
+Code Context under Review:
+${diffContext.slice(0, 25000)}
 
-Perform a comprehensive code review. Return ONLY valid JSON matching this schema:
+Perform a strict non-destructive AI Code Review. Return ONLY valid JSON matching this schema:
 {
-  "summary": "2-3 sentence technical overview of repository quality, architecture, and safety",
+  "prSummary": "Comprehensive 3-5 sentence summary of the pull request / code changes",
+  "riskAssessment": "LOW|MEDIUM|HIGH|CRITICAL",
   "overallScore": 85,
   "categories": {
-    "codeQuality": 85,
     "security": 90,
+    "bugs": 85,
     "performance": 80,
-    "maintainability": 85,
-    "testCoverage": 65
+    "architecture": 85,
+    "maintainability": 80,
+    "codeQuality": 88,
+    "testing": 70
   },
   "findings": [
     {
-      "id": "R001",
+      "id": "find-1",
       "severity": "critical|high|medium|low|info",
-      "category": "Security|Performance|Maintainability|Best Practice|Bug Risk|TypeScript|Documentation",
-      "title": "Short title of issue",
-      "description": "Clear explanation of what is wrong and why",
+      "category": "Security|Bug|Performance|Architecture|Maintainability|Code Quality|Testing",
       "file": "path/to/file.ts",
-      "lineHint": "approx line or function name",
-      "suggestion": "How to fix this issue"
+      "line": 42,
+      "title": "Clear concise finding title",
+      "description": "Detailed technical explanation of the vulnerability, bug, or design issue",
+      "recommendation": "Actionable non-destructive suggestion or code fix pattern",
+      "status": "OPEN"
     }
   ],
-  "positives": ["3-5 strengths of this codebase"],
-  "recommendations": ["3-4 high-impact actionable next steps"]
+  "testRecommendations": [
+    "Specific unit/integration test cases that should be added to verify these changes"
+  ],
+  "positiveNotes": [
+    "Clean code practices and good design choices identified in these changes"
+  ]
 }
 
-Provide at least 4 realistic findings based on the provided files.`;
+Rules:
+- Category MUST be EXACTLY one of: Security, Bug, Performance, Architecture, Maintainability, Code Quality, Testing
+- Provide at least 5 realistic, high-value findings
+- Do NOT output markdown code fences around JSON`;
 
     const text = await callGemini(prompt);
     const jsonMatch = text.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) throw new Error('Failed to extract JSON from review output');
+    if (!jsonMatch) throw new Error('Failed to parse review JSON output');
 
     const parsed = JSON.parse(jsonMatch[0]);
     const validated = codeReviewResultSchema.parse(parsed);
@@ -185,7 +209,7 @@ Provide at least 4 realistic findings based on the provided files.`;
       ...reviewJobStore[jobId],
       status: 'complete',
       progress: 100,
-      progressMessage: 'Code review completed successfully.',
+      progressMessage: 'Code review complete.',
       result: validated,
       completedAt: new Date().toISOString(),
     };
@@ -212,6 +236,9 @@ export class CodeReviewService {
       owner: input.owner,
       repo: input.repo,
       branch: input.branch,
+      targetType: input.targetType,
+      prNumber: input.prNumber,
+      commitSha: input.commitSha,
       status: 'running',
       progress: 0,
       progressMessage: 'Starting code review...',
@@ -232,5 +259,18 @@ export class CodeReviewService {
     );
     if (projectId) return all.filter((j) => j.projectId === projectId);
     return all;
+  }
+
+  static updateFindingStatus(input: UpdateFindingStatusInput): boolean {
+    const { reviewId, findingId, status } = input;
+    const job = reviewJobStore[reviewId];
+    if (!job || !job.result) return false;
+
+    const finding = job.result.findings.find((f) => f.id === findingId);
+    if (finding) {
+      finding.status = status as FindingStatus;
+      return true;
+    }
+    return false;
   }
 }
