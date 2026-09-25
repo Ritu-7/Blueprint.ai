@@ -35,13 +35,23 @@ services:
       start_period: 15s
 
   # ── Background Queue Worker Process ─────────────────────────────────────────
+  # Uses the same Docker image as `web` but overrides the CMD to run the
+  # standalone worker process instead of the Next.js HTTP server.
+  #
+  # The worker:
+  #   - connects to Redis and BRPOP-polls `blueprint:queue`
+  #   - executes REPOSITORY_ANALYSIS, EMBEDDING_GENERATION, CODE_REVIEW,
+  #     and BLUEPRINT_GENERATION jobs via QueueService.runJob
+  #   - writes job state back to Redis hashes (blueprint:jobs:<id>)
+  #   - the web server reads those hashes when clients poll /api/jobs/status
   worker:
     build:
       context: ./client
       dockerfile: Dockerfile
     container_name: blueprint_worker
     restart: always
-    command: ["node", "server.js"]
+    # Run the TypeScript worker directly using tsx (no separate compile step)
+    command: ["node_modules/.bin/tsx", "src/worker.ts"]
     environment:
       - NODE_ENV=production
       - WORKER_MODE=true
@@ -53,10 +63,11 @@ services:
       redis:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "node -e 'process.exit(0)'"]
+      test: ["CMD-SHELL", "pgrep -f 'tsx src/worker.ts' > /dev/null || exit 1"]
       interval: 30s
       timeout: 5s
       retries: 3
+      start_period: 10s
 
   # ── Redis Cache & Queue Broker ─────────────────────────────────────────────
   redis:

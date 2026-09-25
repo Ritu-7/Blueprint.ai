@@ -10,6 +10,7 @@ export default function ProjectBuilderSubPage() {
     <CentralDevelopmentWorkspace
       initialProject={project}
       onProjectUpdate={(updated) => setProject(updated)}
+      showTopNav={false}
     />
   );
 }

@@ -35,5 +35,9 @@ export default function StandaloneBuilderPage() {
     ],
   };
 
-  return <CentralDevelopmentWorkspace initialProject={dummyProject} />;
+  return (
+    <div className="h-screen w-screen overflow-hidden">
+      <CentralDevelopmentWorkspace initialProject={dummyProject} showTopNav={true} />
+    </div>
+  );
 }

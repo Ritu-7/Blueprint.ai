@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
       return apiError('Missing required parameter: jobId', 400);
     }
 
-    const job = QueueService.getJob(jobId);
+    const job = await QueueService.getJob(jobId);
     if (!job) {
       return apiError(`Background job not found: ${jobId}`, 404);
     }
@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
     const projectId = typeof body.projectId === 'string' ? body.projectId : undefined;
     const state = typeof body.state === 'string' ? body.state : undefined;
 
-    const jobs = QueueService.listJobs(projectId, state as any);
+    const jobs = await QueueService.listJobs(projectId, state as any);
     return apiSuccess(jobs);
   } catch (error: unknown) {
     return handleApiError(error, 'api/jobs/list');

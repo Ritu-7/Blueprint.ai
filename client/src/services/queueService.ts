@@ -1,4 +1,20 @@
+/**
+ * QueueService — background job queue.
+ *
+ * Public API is identical to the previous in-memory implementation so no
+ * callers need to change. Internally the job state is backed by Redis (via
+ * JobStore) when REDIS_URL is present, or by the in-memory fallback when it
+ * is not.
+ *
+ * The in-process loop (processQueue) runs as before for the Next.js web
+ * server (handles BLUEPRINT_GENERATION / quick jobs). Long-running jobs
+ * (REPOSITORY_ANALYSIS, EMBEDDING_GENERATION, CODE_REVIEW) are dequeued and
+ * executed by the standalone worker process (client/worker.ts) when running
+ * in a multi-container deployment.
+ */
+
 import { logger } from '@/lib/logger/logger';
+import { JobStore } from '@/lib/redis/redisJobStore';
 import { CodebaseAnalysisService } from '@/services/codebaseAnalysisService';
 import { RagService } from '@/services/ragService';
 import { CodeReviewService } from '@/services/codeReviewService';
@@ -10,19 +26,20 @@ import type {
   JobType,
 } from '@/validators/queue';
 
-const jobStore: Record<string, JobStatus> = {};
-const pendingQueue: string[] = [];
-let isProcessingQueue = false;
-
 function createJobId(): string {
   return `job-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 }
 
+// Track whether the in-process queue loop is running so we don't start it twice.
+let isProcessingQueue = false;
+
 export class QueueService {
   /**
    * Enqueues a new background job and returns immediately (non-blocking HTTP 202).
+   * The job is stored in Redis (or in-memory) and the in-process loop is kicked
+   * off via setImmediate so the HTTP response is not blocked.
    */
-  static enqueueJob(input: CreateJobInput): JobStatus {
+  static async enqueueJob(input: CreateJobInput): Promise<JobStatus> {
     const id = createJobId();
     const job: JobStatus = {
       id,
@@ -42,90 +59,138 @@ export class QueueService {
       ],
     };
 
-    jobStore[id] = job;
-    pendingQueue.push(id);
+    await JobStore.set(job);
+    await JobStore.enqueue(id);
 
     logger.info(`Queued background job ${id} [${input.type}]`, 'queueService');
 
-    // Trigger async processing loop in background
-    setImmediate(() => QueueService.processQueue(input.payload));
+    // Kick off the in-process loop in a microtask so the awaited enqueueJob
+    // returns before any work starts (preserving the non-blocking HTTP 202 contract).
+    setImmediate(() => {
+      QueueService.processQueue(input.payload).catch((err) => {
+        logger.error(`processQueue error: ${err instanceof Error ? err.message : err}`, 'queueService');
+      });
+    });
 
     return job;
   }
 
   /**
    * Updates job progress, state, or log entry.
+   * Fire-and-forget — callers do not need to await.
    */
-  static updateProgress(id: string, progress: number, message: string, state?: JobState) {
-    const job = jobStore[id];
-    if (!job) return;
-
-    job.progress = Math.min(100, Math.max(0, progress));
-    if (state) job.state = state;
-    job.logs.push({
-      timestamp: new Date().toISOString(),
-      progress: job.progress,
-      message,
+  static updateProgress(id: string, progress: number, message: string, state?: JobState): void {
+    // Run async update without blocking callers
+    JobStore.get(id).then(async (job) => {
+      if (!job) return;
+      const clampedProgress = Math.min(100, Math.max(0, progress));
+      await JobStore.update(id, {
+        progress: clampedProgress,
+        state: state ?? job.state,
+        logs: [
+          ...job.logs,
+          {
+            timestamp: new Date().toISOString(),
+            progress: clampedProgress,
+            message,
+          },
+        ],
+      });
+      logger.info(`[Job ${id}] ${clampedProgress}% - ${message}`, 'queueService');
+    }).catch((err) => {
+      logger.error(`updateProgress error for ${id}: ${err instanceof Error ? err.message : err}`, 'queueService');
     });
-
-    logger.info(`[Job ${id}] ${job.progress}% - ${message}`, 'queueService');
   }
 
   /**
-   * Background Queue Worker Loop.
+   * Background Queue Worker Loop (in-process).
+   * Processes jobs from the queue until it is empty, then exits.
+   * The standalone worker process runs its own equivalent loop.
    */
-  private static async processQueue(payload: Record<string, unknown>) {
+  static async processQueue(payload: Record<string, unknown>): Promise<void> {
     if (isProcessingQueue) return;
     isProcessingQueue = true;
 
-    while (pendingQueue.length > 0) {
-      const jobId = pendingQueue.shift();
-      if (!jobId) continue;
+    try {
+      let jobId = await JobStore.dequeueOne();
+      while (jobId) {
+        await QueueService.runJob(jobId, payload);
+        jobId = await JobStore.dequeueOne();
+      }
+    } finally {
+      isProcessingQueue = false;
+    }
+  }
 
-      const job = jobStore[jobId];
-      if (!job) continue;
+  /**
+   * Executes a single job with retry logic.
+   * Shared between the in-process loop and the standalone worker.
+   */
+  static async runJob(jobId: string, payload: Record<string, unknown>): Promise<void> {
+    const job = await JobStore.get(jobId);
+    if (!job) return;
 
-      job.state = 'PROCESSING';
-      job.startedAt = new Date().toISOString();
-      job.attemptsMade += 1;
-      QueueService.updateProgress(jobId, 5, `Attempt ${job.attemptsMade}/${job.maxRetries} started.`);
+    await JobStore.update(jobId, {
+      state: 'PROCESSING',
+      startedAt: new Date().toISOString(),
+      attemptsMade: job.attemptsMade + 1,
+    });
 
-      try {
-        const result = await QueueService.executeWorker(job.type, payload, (p, msg) => {
-          QueueService.updateProgress(jobId, p, msg);
+    const attempt = job.attemptsMade + 1;
+    QueueService.updateProgress(jobId, 5, `Attempt ${attempt}/${job.maxRetries} started.`);
+
+    try {
+      const result = await QueueService.executeWorker(job.type, payload, (p, msg) => {
+        QueueService.updateProgress(jobId, p, msg);
+      });
+
+      await JobStore.update(jobId, {
+        state: 'COMPLETED',
+        progress: 100,
+        result,
+        completedAt: new Date().toISOString(),
+      });
+      QueueService.updateProgress(jobId, 100, `Job ${jobId} completed successfully.`, 'COMPLETED');
+    } catch (err: unknown) {
+      const errMsg = err instanceof Error ? err.message : 'Unknown execution failure';
+      logger.error(`Job ${jobId} failed on attempt ${attempt}: ${errMsg}`, 'queueService');
+
+      const refreshed = await JobStore.get(jobId);
+      const attemptsMade = refreshed?.attemptsMade ?? attempt;
+      const maxRetries = refreshed?.maxRetries ?? job.maxRetries;
+
+      if (attemptsMade < maxRetries) {
+        await JobStore.update(jobId, { state: 'QUEUED' });
+        QueueService.updateProgress(
+          jobId,
+          refreshed?.progress ?? 5,
+          `Attempt ${attemptsMade} failed: ${errMsg}. Retrying...`,
+          'QUEUED'
+        );
+        // Exponential back-off before re-queuing
+        await new Promise((r) => setTimeout(r, Math.pow(2, attemptsMade) * 1000));
+        await JobStore.enqueue(jobId);
+      } else {
+        await JobStore.update(jobId, {
+          state: 'FAILED',
+          error: errMsg,
+          completedAt: new Date().toISOString(),
         });
-
-        job.state = 'COMPLETED';
-        job.progress = 100;
-        job.result = result;
-        job.completedAt = new Date().toISOString();
-        QueueService.updateProgress(jobId, 100, `Job ${jobId} completed successfully.`, 'COMPLETED');
-      } catch (err: unknown) {
-        const errMsg = err instanceof Error ? err.message : 'Unknown execution failure';
-        logger.error(`Job ${jobId} failed on attempt ${job.attemptsMade}: ${errMsg}`, 'queueService');
-
-        if (job.attemptsMade < job.maxRetries) {
-          job.state = 'QUEUED';
-          QueueService.updateProgress(jobId, job.progress, `Attempt ${job.attemptsMade} failed: ${errMsg}. Retrying...`, 'QUEUED');
-          // Re-queue with exponential backoff
-          await new Promise((r) => setTimeout(r, Math.pow(2, job.attemptsMade) * 1000));
-          pendingQueue.push(jobId);
-        } else {
-          job.state = 'FAILED';
-          job.error = errMsg;
-          job.completedAt = new Date().toISOString();
-          QueueService.updateProgress(jobId, job.progress, `Job failed permanently after ${job.attemptsMade} attempts: ${errMsg}`, 'FAILED');
-        }
+        QueueService.updateProgress(
+          jobId,
+          refreshed?.progress ?? 5,
+          `Job failed permanently after ${attemptsMade} attempts: ${errMsg}`,
+          'FAILED'
+        );
       }
     }
-
-    isProcessingQueue = false;
   }
 
   /**
    * Worker Execution Router for expensive operations.
+   * Also exported so the standalone worker.ts can call it directly.
    */
-  private static async executeWorker(
+  static async executeWorker(
     type: JobType,
     payload: Record<string, unknown>,
     progressCallback: (progress: number, message: string) => void
@@ -141,7 +206,6 @@ export class QueueService {
         const analysisJobId = CodebaseAnalysisService.startAnalysis({ owner, repo, branch, projectId });
         progressCallback(50, 'AI analyzing code structure...');
 
-        // Poll until analysis service completes
         let attempts = 0;
         while (attempts < 60) {
           await new Promise((r) => setTimeout(r, 2000));
@@ -207,24 +271,13 @@ export class QueueService {
     }
   }
 
-  /**
-   * Retrieves job status and logs.
-   */
-  static getJob(id: string): JobStatus | null {
-    return jobStore[id] ?? null;
+  /** Retrieves job status and logs. */
+  static async getJob(id: string): Promise<JobStatus | null> {
+    return JobStore.get(id);
   }
 
-  /**
-   * Lists jobs optionally filtered by project or state.
-   */
-  static listJobs(projectId?: string, state?: JobState): JobStatus[] {
-    let all = Object.values(jobStore).sort(
-      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-    );
-
-    if (projectId) all = all.filter((j) => j.projectId === projectId);
-    if (state) all = all.filter((j) => j.state === state);
-
-    return all;
+  /** Lists jobs optionally filtered by project or state. */
+  static async listJobs(projectId?: string, state?: JobState): Promise<JobStatus[]> {
+    return JobStore.list(projectId, state);
   }
 }

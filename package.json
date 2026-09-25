@@ -3,21 +3,9 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "client:dev": "npm run dev --prefix client",
-    "server:dev": "npm run dev --prefix server",
-    "dev": "concurrently \"npm run client:dev\" \"npm run server:dev\"",
+    "dev": "npm run dev --prefix client",
     "build": "npm run build --prefix client",
     "start": "npm run start --prefix client",
-    "install-all": "npm install && npm install --prefix client && npm install --prefix server"
-  },
-  "devDependencies": {
-    "concurrently": "^8.2.2"
-  },
-  "dependencies": {
-    "@supabase/ssr": "^0.12.7",
-    "@supabase/supabase-js": "^2.116.0",
-    "next": "14.2.3",
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0"
+    "install-all": "npm install && npm install --prefix client"
   }
 }

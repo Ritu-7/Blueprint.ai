@@ -6,6 +6,7 @@ import { useUser } from '@clerk/nextjs';
 import { toast } from 'sonner';
 import type { ProjectFile } from '@/types/project';
 
+import { TopNav } from './TopNav';
 import { WorkspaceHeader } from './WorkspaceHeader';
 import { FileExplorerTree } from './FileExplorerTree';
 import { CodeEditorWorkspace } from './CodeEditorWorkspace';
@@ -18,9 +19,14 @@ import { updateProject } from '@/lib/database';
 export function CentralDevelopmentWorkspace({
   initialProject,
   onProjectUpdate,
+  showTopNav = true,
 }: {
   initialProject: any;
   onProjectUpdate?: (updated: any) => void;
+  /** When true (default), renders the IDE's own TopNav header bar.
+   *  Set to false when mounted inside /projects/[projectId]/builder where
+   *  ProjectHeader already provides top-level navigation. */
+  showTopNav?: boolean;
 }) {
   const { user } = useUser();
   const [project, setProject] = useState<any>(initialProject);
@@ -255,6 +261,9 @@ export function CentralDevelopmentWorkspace({
 
   return (
     <div className="flex h-full w-full flex-col bg-[#0a0d14] overflow-hidden">
+      {/* TopNav (64px) — shown on standalone /builder; hidden inside /projects layout */}
+      {showTopNav && <TopNav />}
+
       {/* Workspace Header (72px) */}
       <WorkspaceHeader
         projectName={project?.name}

@@ -1,0 +1,17 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "outDir": "dist-worker",
+    "noEmit": false,
+    "target": "es2020",
+    "sourceMap": true,
+    "declaration": false,
+    "paths": {
+      "@/*": ["./src/*"]
+    }
+  },
+  "include": ["src/worker.ts", "src/lib/redis/**/*", "src/services/**/*", "src/validators/**/*", "src/config/**/*", "src/lib/**/*"],
+  "exclude": ["node_modules", ".next", "dist-worker"]
+}

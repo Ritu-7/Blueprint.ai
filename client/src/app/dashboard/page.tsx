@@ -1,13 +1,25 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
 import { useUser } from '@clerk/nextjs';
+import { formatDistanceToNow } from 'date-fns';
 import { Activity, ArrowUpRight, CheckCircle2, FolderKanban, Sparkles, Plus, Layers, Terminal } from 'lucide-react';
 import { WorkspacePage } from '@/components/app/WorkspacePage';
 import { ProjectCard } from '@/components/ProjectCard';
 import { fetchUserProjects } from '@/lib/database';
 import type { DatabaseProject } from '@/types/database';
+
+function formatRelativeTime(dateStr?: string): string {
+  if (!dateStr) return 'Recently';
+  try {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return 'Recently';
+    return formatDistanceToNow(d, { addSuffix: true });
+  } catch {
+    return 'Recently';
+  }
+}
 
 export default function DashboardPage() {
   const { user, isLoaded } = useUser();
@@ -32,11 +44,52 @@ export default function DashboardPage() {
     }
   }, [user, isLoaded]);
 
-  const activeCount = projects.length > 0 ? projects.length : 6;
+  const totalFiles = useMemo(
+    () => projects.reduce((acc, p) => acc + (p.files?.length || 0), 0),
+    [projects]
+  );
+
+  const readySpecs = useMemo(
+    () => projects.filter((p) => p.schema_code || p.api_code).length,
+    [projects]
+  );
+
+  const recentProjects = useMemo(() => {
+    return [...projects]
+      .sort(
+        (a, b) =>
+          new Date(b.updated_at || b.created_at).getTime() -
+          new Date(a.updated_at || a.created_at).getTime()
+      )
+      .slice(0, 3);
+  }, [projects]);
+
   const metrics = [
-    { label: 'Active blueprints', value: String(activeCount).padStart(2, '0'), detail: user ? 'Saved in cloud' : 'Demo workspace' },
-    { label: 'Generation runs', value: '24', detail: '98% completed' },
-    { label: 'Saved components', value: String(activeCount * 18), detail: `Across ${activeCount} projects` },
+    {
+      label: 'Active blueprints',
+      value: String(projects.length).padStart(2, '0'),
+      detail: user
+        ? projects.length > 0
+          ? `${projects.length} saved in cloud`
+          : 'No blueprints created'
+        : 'Demo workspace',
+    },
+    {
+      label: 'Generated files',
+      value: String(totalFiles).padStart(2, '0'),
+      detail:
+        projects.length > 0
+          ? `Across ${projects.length} ${projects.length === 1 ? 'project' : 'projects'}`
+          : '0 files generated',
+    },
+    {
+      label: 'Architecture specs',
+      value: String(readySpecs).padStart(2, '0'),
+      detail:
+        projects.length > 0
+          ? `${readySpecs} schemas & API contracts`
+          : 'Ready on blueprint generation',
+    },
   ];
 
   return (
@@ -116,12 +169,30 @@ export default function DashboardPage() {
             <Activity className="h-6 w-6 text-cyan-300" />
           </div>
           <div className="mt-8 space-y-4">
-            {['Pipeline CRM generated', 'Schema contract reviewed', 'Preview shared with your team'].map((item) => (
-              <div key={item} className="flex items-center gap-3 border-t border-white/10 pt-4 text-sm text-white/65">
-                <CheckCircle2 className="h-4 w-4 text-cyan-300" />
-                {item}
+            {recentProjects.length > 0 ? (
+              recentProjects.map((proj) => (
+                <Link
+                  key={proj.id}
+                  href={`/projects/${proj.id}/overview`}
+                  className="flex items-center justify-between gap-3 border-t border-white/10 pt-4 text-sm text-white/65 hover:text-white transition-colors group"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <CheckCircle2 className="h-4 w-4 text-cyan-300 shrink-0" />
+                    <span className="truncate font-medium text-white/80 group-hover:text-cyan-200 transition-colors">
+                      {proj.name} updated
+                    </span>
+                  </div>
+                  <span className="text-xs text-white/40 shrink-0">
+                    {formatRelativeTime(proj.updated_at || proj.created_at)}
+                  </span>
+                </Link>
+              ))
+            ) : (
+              <div className="border-t border-white/10 pt-4 text-sm text-white/40 flex items-center gap-3">
+                <CheckCircle2 className="h-4 w-4 text-white/20 shrink-0" />
+                <span>No activity yet — start your first blueprint</span>
               </div>
-            ))}
+            )}
           </div>
         </section>
 

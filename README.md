@@ -38,6 +38,8 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000) in your browser.
 
+> **Note**: The entire application lives in `/client` (Next.js 14 + Supabase). There is no separate Express server — all API routes are Next.js App Router route handlers inside `client/src/app/api/`.
+
 ---
 
 ### 2. Docker Development & Testing

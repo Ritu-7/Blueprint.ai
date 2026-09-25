@@ -21,7 +21,7 @@ export const dynamic = 'force-dynamic';
 export async function POST(req: NextRequest) {
   try {
     const input = await validateRequestBody(createJobSchema, req);
-    const job = QueueService.enqueueJob(input);
+    const job = await QueueService.enqueueJob(input);
     return apiSuccess({
       jobId: job.id,
       state: job.state,
