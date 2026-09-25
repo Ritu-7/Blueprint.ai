@@ -136,7 +136,7 @@ export default function DashboardPage() {
                 project={{
                   id: proj.id,
                   name: proj.name,
-                  description: proj.description || 'AI-generated application blueprint',
+                  description: 'AI-generated application blueprint',
                   created_at: proj.created_at,
                 }}
               />

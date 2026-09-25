@@ -66,7 +66,6 @@ function BuilderPageContent() {
       const newProject = await saveProject({
         user_id: user?.id || 'anonymous',
         name: generated.name || 'AI Application Blueprint',
-        description: generated.description || `Generated from prompt: "${promptText.slice(0, 80)}"`,
         prompt: promptText,
         kind: generated.kind || 'saas',
         ui_code: generated.uiCode || generated.ui_code || '',

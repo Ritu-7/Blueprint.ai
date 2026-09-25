@@ -41,7 +41,9 @@ export default function ProjectOverviewPage() {
             </div>
             <h1 className="text-3xl font-black tracking-tight md:text-5xl text-white">{project?.name}</h1>
             <p className="max-w-2xl text-sm leading-6 text-white/60">
-              {project?.description || 'AI-generated application blueprint with complete workspace state.'}
+              {project?.prompt
+                ? `Generated from: "${project.prompt.slice(0, 120)}${project.prompt.length > 120 ? '…' : ''}"`
+                : 'AI-generated application blueprint with complete workspace state.'}
             </p>
           </div>
 

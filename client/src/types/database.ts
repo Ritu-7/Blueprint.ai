@@ -6,7 +6,6 @@ export interface DatabaseProject {
   id: string;
   user_id: string;
   name: string;
-  description: string | null;
   prompt: string;
   kind: string | null;
   ui_code: string | null;

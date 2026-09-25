@@ -15,7 +15,6 @@ export const projectFileSchema = z.object({
 export const createProjectSchema = z.object({
   user_id: z.string().min(1, 'User ID is required'),
   name: z.string().min(1, 'Project name is required'),
-  description: z.string().nullable().default(null),
   prompt: z.string().default(''),
   kind: z.string().nullable().default(null),
   ui_code: z.string().nullable().default(null),
