@@ -120,7 +120,9 @@ CREATE TABLE IF NOT EXISTS public.projects (
 );
 
 -- Guarantee missing columns are added if public.projects pre-existed
+ALTER TABLE public.projects ADD COLUMN IF NOT EXISTS user_id TEXT NOT NULL DEFAULT '';
 ALTER TABLE public.projects ADD COLUMN IF NOT EXISTS org_id UUID REFERENCES public.organizations(id) ON DELETE SET NULL;
+ALTER TABLE public.projects ADD COLUMN IF NOT EXISTS description TEXT;
 ALTER TABLE public.projects ADD COLUMN IF NOT EXISTS prompt TEXT;
 ALTER TABLE public.projects ADD COLUMN IF NOT EXISTS kind TEXT DEFAULT 'todo';
 ALTER TABLE public.projects ADD COLUMN IF NOT EXISTS ui_code TEXT;
@@ -129,6 +131,8 @@ ALTER TABLE public.projects ADD COLUMN IF NOT EXISTS api_code TEXT;
 ALTER TABLE public.projects ADD COLUMN IF NOT EXISTS readme_code TEXT;
 ALTER TABLE public.projects ADD COLUMN IF NOT EXISTS files JSONB NOT NULL DEFAULT '[]'::jsonb;
 ALTER TABLE public.projects ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'active';
+ALTER TABLE public.projects ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+ALTER TABLE public.projects ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
 ALTER TABLE public.projects ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
 
 CREATE INDEX IF NOT EXISTS idx_projects_user_id ON public.projects(user_id);
