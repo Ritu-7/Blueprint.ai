@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Generate Zod-validated 12-section structured blueprint
-    const structuredBlueprint = AIService.generateProject(prompt);
+    const structuredBlueprint = await AIService.generateProject(prompt);
 
     let versionInfo = null;
     if (projectId) {

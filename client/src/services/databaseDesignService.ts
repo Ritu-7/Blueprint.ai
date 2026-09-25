@@ -278,7 +278,7 @@ export class DatabaseDesignService {
     const { data: project } = await supabaseClient.from('projects').select('name, prompt, kind').eq('id', projectId).single();
     const prompt = project?.prompt || 'Full-stack application';
 
-    const blueprint = AIService.generateProject(prompt);
+    const blueprint = await AIService.generateProject(prompt);
 
     const tables: DatabaseTable[] = [
       {

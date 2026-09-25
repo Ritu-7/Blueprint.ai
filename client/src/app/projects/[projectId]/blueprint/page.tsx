@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import { useProject } from '@/components/workspace/ProjectContext';
-import { AIService } from '@/services/aiService';
 import type { FullBlueprint } from '@/validators/blueprintSchema';
 import { GlassCard } from '@/components/GlassCard';
 import { CodeEditor } from '@/components/builder/CodeEditor';
@@ -32,12 +31,28 @@ export default function ProjectBlueprintPage() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [versions, setVersions] = useState<Array<{ id: string; version_number: number; prompt: string; created_at: string }>>([]);
 
-  // Load structured blueprint data from project context
+  // Load structured blueprint data via API (never call AIService directly from the browser)
   useEffect(() => {
-    if (project?.prompt) {
-      const generated = AIService.generateProject(project.prompt);
-      setBlueprintData(generated);
+    if (!project?.prompt) return;
+    let cancelled = false;
+    async function loadBlueprint() {
+      try {
+        const res = await fetch('/api/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          // No projectId — preview only, does not save a new version
+          body: JSON.stringify({ prompt: project!.prompt }),
+        });
+        const json = await res.json();
+        if (!cancelled && json.success && json.data) {
+          setBlueprintData(json.data as FullBlueprint);
+        }
+      } catch {
+        // Silently ignore — blueprint will stay null until next retry
+      }
     }
+    loadBlueprint();
+    return () => { cancelled = true; };
   }, [project]);
 
   // Load version history

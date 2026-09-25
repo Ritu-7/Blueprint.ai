@@ -129,7 +129,7 @@ export class ArchitectureService {
     const prompt = project?.prompt || 'Full-stack application workspace';
     const kind = project?.kind || 'dashboard';
 
-    const blueprint = AIService.generateProject(prompt);
+    const blueprint = await AIService.generateProject(prompt);
 
     // Create 11 structured components with canvas layout grid coordinates
     const components: ArchitectureComponent[] = [

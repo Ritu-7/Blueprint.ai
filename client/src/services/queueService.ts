@@ -234,7 +234,7 @@ export class QueueService {
       case 'BLUEPRINT_GENERATION': {
         progressCallback(20, 'Analyzing product requirements...');
         const prompt = String(payload.prompt || 'Full-stack application');
-        const blueprint = AIService.generateProject(prompt);
+        const blueprint = await AIService.generateProject(prompt);
         progressCallback(80, 'Validating structured 12-section model against Zod schema...');
         return blueprint;
       }

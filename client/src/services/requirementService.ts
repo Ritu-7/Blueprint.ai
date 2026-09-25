@@ -133,7 +133,7 @@ export class RequirementService {
     const { data: project } = await supabaseClient.from('projects').select('name, prompt, kind').eq('id', projectId).single();
     const activePrompt = prompt || project?.prompt || 'Full-stack application blueprint';
 
-    const blueprint = AIService.generateProject(activePrompt);
+    const blueprint = await AIService.generateProject(activePrompt);
 
     // Build structured requirement records from 12-section blueprint
     const generatedList: CreateRequirementInput[] = [
