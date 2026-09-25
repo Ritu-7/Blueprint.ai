@@ -1,7 +1,41 @@
 import { auth } from '@clerk/nextjs/server';
+import { clerkClient } from '@clerk/nextjs/server';
 import { UnauthorizedError, ForbiddenError } from '../errors/AppError';
 import { ProjectService } from '@/services/projectService';
 import { logger } from '../logger/logger';
+
+type UserRole = 'admin' | 'client';
+
+/**
+ * Fetches the publicMetadata.role for a Clerk user.
+ * Defaults to 'client' if unset or any unexpected value.
+ */
+export async function getUserRole(userId: string): Promise<UserRole> {
+  try {
+    const user = await clerkClient.users.getUser(userId);
+    const role = user.publicMetadata?.role;
+    if (role === 'admin' || role === 'client') return role;
+    return 'client';
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    logger.warn(`getUserRole failed for ${userId}: ${msg}`, 'authGuard');
+    return 'client';
+  }
+}
+
+/**
+ * Enforces that the authenticated user has the 'admin' role.
+ * Throws 401 if unauthenticated, or 403 ForbiddenError if role !== 'admin'.
+ * Returns { userId, role } on success.
+ */
+export async function requireAdmin(): Promise<{ userId: string; role: UserRole }> {
+  const { userId } = await requireAuth();
+  const role = await getUserRole(userId);
+  if (role !== 'admin') {
+    throw new ForbiddenError('Admin access required');
+  }
+  return { userId, role };
+}
 
 export async function getAuthUser() {
   const { userId } = await auth();
