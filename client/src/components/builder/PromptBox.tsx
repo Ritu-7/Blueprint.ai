@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { History, Loader2, RefreshCw, Send, Sparkles } from 'lucide-react';
 import { cn } from '@/utils/utils';
 
@@ -15,12 +15,20 @@ export function PromptBox({
   onGenerate,
   isLoading,
   history,
+  initialPrompt = '',
 }: {
   onGenerate: (prompt: string) => Promise<void> | void;
   isLoading: boolean;
   history: { prompt: string; date: string }[];
+  initialPrompt?: string;
 }) {
-  const [prompt, setPrompt] = useState('');
+  const [prompt, setPrompt] = useState(initialPrompt);
+
+  useEffect(() => {
+    if (initialPrompt) {
+      setPrompt(initialPrompt);
+    }
+  }, [initialPrompt]);
 
   const submit = async (nextPrompt = prompt) => {
     const value = nextPrompt.trim();
@@ -109,4 +117,3 @@ export function PromptBox({
     </div>
   );
 }
-

@@ -1,5 +1,7 @@
 'use client';
 
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowRight, Bot, CheckCircle2, Code2, Database, Globe2, Play, Sparkles, Zap } from 'lucide-react';
 import { motion } from 'framer-motion';
@@ -20,6 +22,19 @@ const features = [
 ];
 
 export default function HomePage() {
+  const router = useRouter();
+  const [heroPrompt, setHeroPrompt] = useState('');
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const query = heroPrompt.trim();
+    if (query) {
+      router.push(`/builder?prompt=${encodeURIComponent(query)}`);
+    } else {
+      router.push('/builder');
+    }
+  };
+
   return (
     <div className="relative min-h-screen overflow-hidden bg-[#05070a]">
       <div className="pointer-events-none absolute inset-x-0 top-0 h-[520px] bg-[radial-gradient(circle_at_50%_0%,rgba(0,243,255,0.18),transparent_58%)]" />
@@ -46,21 +61,32 @@ export default function HomePage() {
             Blueprint.ai turns a prompt into a polished app workspace: live preview, generated files, database schema, API docs, and a premium code editor experience.
           </p>
 
-          <div className="mt-8 rounded-2xl border border-white/10 bg-white/[0.04] p-3 shadow-2xl">
+          <form onSubmit={handleSubmit} className="mt-8 rounded-2xl border border-white/10 bg-white/[0.04] p-3 shadow-2xl">
             <div className="flex flex-col gap-3 sm:flex-row">
-              <div className="flex min-h-14 flex-1 items-center rounded-xl bg-black/30 px-4 text-sm text-white/45">
-                Create a conversion-ready SaaS dashboard with auth and analytics...
-              </div>
-              <Link href="/builder" className="inline-flex items-center justify-center gap-2 rounded-xl bg-cyan-400 px-6 py-4 text-sm font-black uppercase tracking-[0.18em] text-[#05070a] transition hover:scale-[1.01] hover:shadow-[0_0_30px_rgba(0,243,255,0.35)]">
+              <input
+                type="text"
+                value={heroPrompt}
+                onChange={(e) => setHeroPrompt(e.target.value)}
+                placeholder="Create a conversion-ready SaaS dashboard with auth and analytics..."
+                className="flex min-h-14 flex-1 items-center rounded-xl bg-black/30 px-4 text-sm text-white placeholder:text-white/45 outline-none border border-transparent focus:border-cyan-400/40 transition-colors"
+              />
+              <button
+                type="submit"
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-cyan-400 px-6 py-4 text-sm font-black uppercase tracking-[0.18em] text-[#05070a] transition hover:scale-[1.01] hover:shadow-[0_0_30px_rgba(0,243,255,0.35)] shrink-0 cursor-pointer"
+              >
                 Start Building
                 <ArrowRight className="h-4 w-4" />
-              </Link>
+              </button>
             </div>
-          </div>
+          </form>
 
           <div className="mt-5 flex flex-wrap gap-2">
             {prompts.map((prompt) => (
-              <Link key={prompt} href="/builder" className="rounded-full border border-white/10 bg-white/[0.025] px-3 py-2 text-xs text-white/45 transition hover:border-cyan-400/30 hover:text-white">
+              <Link
+                key={prompt}
+                href={`/builder?prompt=${encodeURIComponent(prompt)}`}
+                className="rounded-full border border-white/10 bg-white/[0.025] px-3 py-2 text-xs text-white/45 transition hover:border-cyan-400/30 hover:text-white"
+              >
                 {prompt}
               </Link>
             ))}

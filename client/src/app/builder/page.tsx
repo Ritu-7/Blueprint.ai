@@ -1,17 +1,20 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useUser } from '@clerk/nextjs';
 import Link from 'next/link';
 import { toast } from 'sonner';
-import { Sparkles, ArrowLeft, Layers, Terminal } from 'lucide-react';
+import { Sparkles, ArrowLeft, Layers, Loader2 } from 'lucide-react';
 import { PromptBox } from '@/components/builder/PromptBox';
 import { GenerationLoader } from '@/components/builder/GenerationLoader';
 import { saveProject } from '@/lib/database';
 
-export default function StandaloneBuilderPage() {
+function BuilderPageContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const initialQuery = searchParams?.get('prompt') || '';
+
   const { user } = useUser();
   const [isLoading, setIsLoading] = useState(false);
   const [history, setHistory] = useState<{ prompt: string; date: string }[]>([]);
@@ -137,7 +140,12 @@ export default function StandaloneBuilderPage() {
 
         {/* Prompt Box Card Container */}
         <div className="rounded-3xl border border-white/10 bg-white/[0.03] shadow-[0_20px_80px_rgba(0,0,0,0.5)] backdrop-blur-xl overflow-hidden">
-          <PromptBox onGenerate={handleGenerate} isLoading={isLoading} history={history} />
+          <PromptBox
+            onGenerate={handleGenerate}
+            isLoading={isLoading}
+            history={history}
+            initialPrompt={initialQuery}
+          />
         </div>
       </main>
 
@@ -149,5 +157,19 @@ export default function StandaloneBuilderPage() {
       {/* Full-screen Loading Overlay during generation */}
       {isLoading && <GenerationLoader />}
     </div>
+  );
+}
+
+export default function StandaloneBuilderPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-[#05070a] flex items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-cyan-400" />
+        </div>
+      }
+    >
+      <BuilderPageContent />
+    </Suspense>
   );
 }
