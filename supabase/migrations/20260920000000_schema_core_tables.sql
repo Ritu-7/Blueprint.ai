@@ -27,10 +27,15 @@ CREATE TABLE IF NOT EXISTS public.users (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS clerk_id TEXT;
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS full_name TEXT;
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS avatar_url TEXT;
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS default_org_id UUID;
+
 CREATE INDEX IF NOT EXISTS idx_users_clerk_id ON public.users(clerk_id);
 CREATE INDEX IF NOT EXISTS idx_users_email ON public.users(email);
 
-CREATE TRIGGER update_users_updated_at
+CREATE OR REPLACE TRIGGER update_users_updated_at
   BEFORE UPDATE ON public.users
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
@@ -48,17 +53,29 @@ CREATE TABLE IF NOT EXISTS public.organizations (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+ALTER TABLE public.organizations ADD COLUMN IF NOT EXISTS plan TEXT NOT NULL DEFAULT 'free';
+ALTER TABLE public.organizations ADD COLUMN IF NOT EXISTS owner_id UUID REFERENCES public.users(id) ON DELETE SET NULL;
+ALTER TABLE public.organizations ADD COLUMN IF NOT EXISTS avatar_url TEXT;
+
 CREATE INDEX IF NOT EXISTS idx_organizations_slug ON public.organizations(slug);
 CREATE INDEX IF NOT EXISTS idx_organizations_owner_id ON public.organizations(owner_id);
 
-CREATE TRIGGER update_organizations_updated_at
+CREATE OR REPLACE TRIGGER update_organizations_updated_at
   BEFORE UPDATE ON public.organizations
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- Circular FK link for default_org_id
-ALTER TABLE public.users
-  ADD CONSTRAINT fk_users_default_org
-  FOREIGN KEY (default_org_id) REFERENCES public.organizations(id) ON DELETE SET NULL;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.table_constraints 
+    WHERE constraint_name = 'fk_users_default_org' AND table_name = 'users'
+  ) THEN
+    ALTER TABLE public.users
+      ADD CONSTRAINT fk_users_default_org
+      FOREIGN KEY (default_org_id) REFERENCES public.organizations(id) ON DELETE SET NULL;
+  END IF;
+END $$;
 
 --------------------------------------------------------------------------------
 -- 3. ORGANIZATION MEMBERS
@@ -76,7 +93,7 @@ CREATE TABLE IF NOT EXISTS public.organization_members (
 CREATE INDEX IF NOT EXISTS idx_org_members_org_id ON public.organization_members(org_id);
 CREATE INDEX IF NOT EXISTS idx_org_members_user_id ON public.organization_members(user_id);
 
-CREATE TRIGGER update_org_members_updated_at
+CREATE OR REPLACE TRIGGER update_org_members_updated_at
   BEFORE UPDATE ON public.organization_members
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
@@ -102,12 +119,24 @@ CREATE TABLE IF NOT EXISTS public.projects (
   deleted_at TIMESTAMPTZ
 );
 
+-- Guarantee missing columns are added if public.projects pre-existed
+ALTER TABLE public.projects ADD COLUMN IF NOT EXISTS org_id UUID REFERENCES public.organizations(id) ON DELETE SET NULL;
+ALTER TABLE public.projects ADD COLUMN IF NOT EXISTS prompt TEXT;
+ALTER TABLE public.projects ADD COLUMN IF NOT EXISTS kind TEXT DEFAULT 'todo';
+ALTER TABLE public.projects ADD COLUMN IF NOT EXISTS ui_code TEXT;
+ALTER TABLE public.projects ADD COLUMN IF NOT EXISTS schema_code TEXT;
+ALTER TABLE public.projects ADD COLUMN IF NOT EXISTS api_code TEXT;
+ALTER TABLE public.projects ADD COLUMN IF NOT EXISTS readme_code TEXT;
+ALTER TABLE public.projects ADD COLUMN IF NOT EXISTS files JSONB NOT NULL DEFAULT '[]'::jsonb;
+ALTER TABLE public.projects ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'active';
+ALTER TABLE public.projects ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
+
 CREATE INDEX IF NOT EXISTS idx_projects_user_id ON public.projects(user_id);
 CREATE INDEX IF NOT EXISTS idx_projects_org_id ON public.projects(org_id);
 CREATE INDEX IF NOT EXISTS idx_projects_status ON public.projects(status);
 CREATE INDEX IF NOT EXISTS idx_projects_files_gin ON public.projects USING GIN (files);
 
-CREATE TRIGGER update_projects_updated_at
+CREATE OR REPLACE TRIGGER update_projects_updated_at
   BEFORE UPDATE ON public.projects
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
@@ -128,7 +157,7 @@ CREATE TABLE IF NOT EXISTS public.project_members (
 CREATE INDEX IF NOT EXISTS idx_project_members_project_id ON public.project_members(project_id);
 CREATE INDEX IF NOT EXISTS idx_project_members_user_id ON public.project_members(user_id);
 
-CREATE TRIGGER update_project_members_updated_at
+CREATE OR REPLACE TRIGGER update_project_members_updated_at
   BEFORE UPDATE ON public.project_members
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
@@ -175,6 +204,17 @@ ALTER TABLE public.organizations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.organization_members ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.projects ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.project_members ENABLE ROW LEVEL SECURITY;
+
+-- Drop policies if they exist before re-creating to avoid "policy already exists" errors
+DROP POLICY IF EXISTS "Users viewable by self" ON public.users;
+DROP POLICY IF EXISTS "Users updatable by self" ON public.users;
+DROP POLICY IF EXISTS "Orgs viewable by members" ON public.organizations;
+DROP POLICY IF EXISTS "Orgs creatable by authenticated users" ON public.organizations;
+DROP POLICY IF EXISTS "Projects viewable by owner or members" ON public.projects;
+DROP POLICY IF EXISTS "Projects insertable by owner" ON public.projects;
+DROP POLICY IF EXISTS "Projects updatable by owner or members" ON public.projects;
+DROP POLICY IF EXISTS "Projects deletable by owner" ON public.projects;
+DROP POLICY IF EXISTS "Project members viewable by project access" ON public.project_members;
 
 -- Users policies
 CREATE POLICY "Users viewable by self" ON public.users
