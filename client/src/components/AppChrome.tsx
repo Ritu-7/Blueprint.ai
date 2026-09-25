@@ -19,7 +19,7 @@ import Footer from '@/components/Footer';
  * Navbar + Footer shell unchanged.
  */
 
-const IDE_PREFIXES = ['/builder', '/projects'];
+const IDE_PREFIXES = ['/builder', '/projects', '/admin'];
 
 function isIdeRoute(pathname: string | null): boolean {
   if (!pathname) return false;
