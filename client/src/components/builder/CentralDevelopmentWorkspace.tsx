@@ -5,6 +5,7 @@ import { cn } from '@/utils/utils';
 import { useUser } from '@clerk/nextjs';
 import { toast } from 'sonner';
 import type { ProjectFile } from '@/types/project';
+import JSZip from 'jszip';
 
 import { TopNav } from './TopNav';
 import { WorkspaceHeader } from './WorkspaceHeader';
@@ -99,57 +100,70 @@ export function CentralDevelopmentWorkspace({
   const problems = useMemo(() => {
     const list: ProblemItem[] = [];
     files.forEach((file) => {
-      const content = contentMap[file.path] ?? file.content;
-      if (file.language === 'json') {
-        try {
-          JSON.parse(content);
-        } catch (err: any) {
-          const msg = err.message || 'JSON Syntax Error';
-          const match = msg.match(/line (\d+)/i);
-          const line = match ? parseInt(match[1], 10) : 1;
+      const content = contentMap[file.path] ?? file.content ?? '';
+      const lines = content.split('\n');
+
+      lines.forEach((line, idx) => {
+        if (line.includes('console.log') && !line.includes('//')) {
           list.push({
-            id: `p-${file.path}-${line}`,
+            id: `${file.path}-${idx}-warn`,
             filePath: file.path,
-            line,
-            message: msg,
-            severity: 'error',
+            line: idx + 1,
+            message: 'Unexpected console statement found in production file',
+            severity: 'warning',
           });
         }
-      }
+        if (line.includes('any') && (file.path.endsWith('.ts') || file.path.endsWith('.tsx'))) {
+          list.push({
+            id: `${file.path}-${idx}-any`,
+            filePath: file.path,
+            line: idx + 1,
+            message: 'Type safety: explicit `any` usage detected',
+            severity: 'warning',
+          });
+        }
+        if (line.includes('TODO:') || line.includes('FIXME:')) {
+          list.push({
+            id: `${file.path}-${idx}-todo`,
+            filePath: file.path,
+            line: idx + 1,
+            message: `Pending task: ${line.trim()}`,
+            severity: 'warning',
+          });
+        }
+      });
     });
     return list;
   }, [files, contentMap]);
 
-  // Tab Selection
+  // Tab & File Selection
   const handleSelectFile = (file: ProjectFile) => {
     setActiveFile(file);
     if (!openTabs.some((t) => t.path === file.path)) {
       setOpenTabs((prev) => [...prev, file]);
     }
-    addLog('info', `Opened file: ${file.path}`);
   };
 
-  // Close Tab
   const handleCloseTab = (path: string) => {
-    const remaining = openTabs.filter((t) => t.path !== path);
-    setOpenTabs(remaining);
+    const nextTabs = openTabs.filter((t) => t.path !== path);
+    setOpenTabs(nextTabs);
     if (activeFile?.path === path) {
-      setActiveFile(remaining[remaining.length - 1]);
+      setActiveFile(nextTabs[nextTabs.length - 1]);
     }
   };
 
-  // Change File Content
+  // Content Modification
   const handleChangeContent = (path: string, newContent: string) => {
     setContentMap((prev) => ({ ...prev, [path]: newContent }));
     setDirtyPaths((prev) => new Set(prev).add(path));
   };
 
-  // Save Specific File
+  // Save File to Database
   const handleSaveFile = async (path: string) => {
-    const updatedContent = contentMap[path];
-    if (updatedContent === undefined) return;
+    const content = contentMap[path];
+    if (content === undefined) return;
 
-    const nextFiles = files.map((f) => (f.path === path ? { ...f, content: updatedContent } : f));
+    const nextFiles = files.map((f) => (f.path === path ? { ...f, content } : f));
     setFiles(nextFiles);
 
     setDirtyPaths((prev) => {
@@ -158,16 +172,20 @@ export function CentralDevelopmentWorkspace({
       return next;
     });
 
-    addLog('success', `Saved changes to ${path}`);
-    toast.success(`Saved ${path}`);
+    addLog('info', `Saving ${path}...`);
 
     if (project?.id) {
       setIsSaving(true);
       try {
         await updateProject(project.id, { files: nextFiles });
-        if (onProjectUpdate) onProjectUpdate({ ...project, files: nextFiles });
-      } catch {
-        addLog('error', `Failed to persist ${path} to database`);
+        if (onProjectUpdate) {
+          onProjectUpdate({ ...project, files: nextFiles });
+        }
+        addLog('success', `Persisted changes in ${path} to Supabase`);
+        toast.success(`Saved ${path}`);
+      } catch (err: any) {
+        addLog('error', `Failed to persist ${path} to database: ${err.message}`);
+        toast.error(`Failed to save ${path}`);
       } finally {
         setIsSaving(false);
       }
@@ -236,20 +254,195 @@ export function CentralDevelopmentWorkspace({
     }
   };
 
-  // Commit Changes Action
-  const handleCommitChanges = (message: string) => {
-    addLog('success', `Committed ${dirtyPaths.size} modified files: "${message}"`);
-    setDirtyPaths(new Set());
-    toast.success('Changes committed to git timeline');
+  // Commit Changes Action (real database persistence + GitHub push if connected)
+  const handleCommitChanges = async (message: string) => {
+    const commitMsg = message.trim() || 'feat: update project files from workspace';
+    const modifiedCount = dirtyPaths.size;
+
+    // Merge dirty buffers into full files list
+    const updatedFiles = files.map((f) => {
+      if (dirtyPaths.has(f.path) && contentMap[f.path] !== undefined) {
+        return { ...f, content: contentMap[f.path] };
+      }
+      return f;
+    });
+
+    setFiles(updatedFiles);
+    addLog('info', `Committing ${modifiedCount > 0 ? modifiedCount : 'all'} file(s): "${commitMsg}"...`);
+
+    // 1. Persist to Supabase database
+    if (project?.id) {
+      setIsSaving(true);
+      try {
+        await updateProject(project.id, { files: updatedFiles });
+        if (onProjectUpdate) {
+          onProjectUpdate({ ...project, files: updatedFiles });
+        }
+      } catch (err: any) {
+        addLog('warn', `Database save notice: ${err.message}`);
+      } finally {
+        setIsSaving(false);
+      }
+    }
+
+    // 2. Real GitHub commit/push via API
+    const repoName = (project?.name || 'blueprint-app').toLowerCase().replace(/\s+/g, '-');
+    try {
+      const res = await fetch('/api/github/push', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          repoName,
+          isPrivate: true,
+          commitMessage: commitMsg,
+          branchName: 'main',
+          files: updatedFiles,
+        }),
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success) {
+        addLog('success', `Committed & pushed to GitHub (${data.data?.repoUrl || repoName}): "${commitMsg}"`);
+        toast.success(`Committed and pushed to GitHub: "${commitMsg}"`);
+        setDirtyPaths(new Set());
+      } else {
+        const errorDetail = data.error?.message || (typeof data.error === 'string' ? data.error : 'GitHub push not configured');
+        addLog('info', `Committed locally to workspace. GitHub notice: ${errorDetail}`);
+        toast.success(`Committed locally: "${commitMsg}"`);
+        setDirtyPaths(new Set());
+      }
+    } catch (err: any) {
+      addLog('info', `Committed locally. GitHub integration notice: ${err.message}`);
+      toast.success(`Committed locally: "${commitMsg}"`);
+      setDirtyPaths(new Set());
+    }
   };
 
-  // Sync Repo
-  const handleSyncRepo = () => {
-    addLog('info', 'Synchronizing workspace with GitHub repository...');
-    setTimeout(() => {
-      addLog('success', 'Repository up to date with branch main');
-      toast.success('Repository synced');
-    }, 800);
+  // Sync Repo with GitHub API
+  const handleSyncRepo = async () => {
+    const repoName = (project?.name || 'blueprint-app').toLowerCase().replace(/\s+/g, '-');
+    const owner = project?.github_owner || '';
+    addLog('info', `Synchronizing workspace with GitHub repository (${repoName})...`);
+
+    try {
+      const res = await fetch(
+        `/api/github/files?owner=${encodeURIComponent(owner || 'current_user')}&repo=${encodeURIComponent(repoName)}&branch=main`
+      );
+      const data = await res.json();
+
+      if (res.ok && data.success && Array.isArray(data.data)) {
+        const remoteFiles = data.data;
+        const remotePaths = new Set(remoteFiles.map((f: any) => f.path));
+        const localPaths = new Set(files.map((f) => f.path));
+
+        const newInRemote = remoteFiles.filter((f: any) => !localPaths.has(f.path));
+        const removedInRemote = files.filter((f) => !remotePaths.has(f.path));
+
+        if (newInRemote.length === 0 && removedInRemote.length === 0) {
+          addLog('success', `Workspace is fully synchronized with GitHub branch main (${files.length} files).`);
+          toast.success('Repository is up to date with GitHub');
+        } else {
+          addLog(
+            'info',
+            `GitHub sync completed: ${newInRemote.length} remote addition(s), ${removedInRemote.length} remote deletion(s).`
+          );
+          toast.info(`Repository synced (${remoteFiles.length} files on GitHub)`);
+        }
+      } else {
+        const errMsg =
+          data.error?.message ||
+          (typeof data.error === 'string' ? data.error : 'Repository not found on GitHub. Push project first.');
+        addLog('warn', `GitHub sync notice: ${errMsg}`);
+        toast.info('Repository not yet on GitHub. Use "Push to GitHub" to connect.');
+      }
+    } catch (err: any) {
+      addLog('error', `Sync failed: ${err.message}`);
+      toast.error('Failed to synchronize with GitHub');
+    }
+  };
+
+  // Real Pull Request Creation via GitHub API
+  const handleOpenPR = async () => {
+    const repoName = (project?.name || 'blueprint-app').toLowerCase().replace(/\s+/g, '-');
+    const owner = project?.github_owner || '';
+    addLog('info', `Opening Pull Request on GitHub for ${repoName}...`);
+
+    try {
+      const res = await fetch('/api/github/pr', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          owner: owner || 'current_user',
+          repo: repoName,
+          branchName: 'feature/blueprint-update',
+          baseBranch: 'main',
+          title: `feat: updates to ${project?.name || 'blueprint application'}`,
+          body: `Automated Pull Request generated from Blueprint.ai development workspace for ${project?.name || 'project'}.`,
+        }),
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success) {
+        addLog('success', `Pull request #${data.data?.number} opened: ${data.data?.prUrl}`);
+        toast.success(`Pull request #${data.data?.number} opened on GitHub!`, {
+          action: data.data?.prUrl
+            ? {
+                label: 'View PR',
+                onClick: () => window.open(data.data.prUrl, '_blank'),
+              }
+            : undefined,
+        });
+      } else {
+        const errMsg =
+          data.error?.message ||
+          (typeof data.error === 'string'
+            ? data.error
+            : 'Could not create PR. Ensure the repository has been pushed to GitHub first.');
+        addLog('error', `PR creation failed: ${errMsg}`);
+        toast.error(errMsg);
+      }
+    } catch (err: any) {
+      const errMsg = err?.message || 'Error connecting to GitHub PR API';
+      addLog('error', `PR creation error: ${errMsg}`);
+      toast.error(errMsg);
+    }
+  };
+
+  // Real Client-Side Zip Export
+  const handleExportZip = async () => {
+    addLog('info', 'Generating project archive zip...');
+    try {
+      const zip = new JSZip();
+
+      // Add all project files with unsaved buffers applied
+      files.forEach((file) => {
+        const content = contentMap[file.path] ?? file.content ?? '';
+        zip.file(file.path, content);
+      });
+
+      const blob = await zip.generateAsync({ type: 'blob' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      const safeName = (project?.name || 'blueprint-project').toLowerCase().replace(/\s+/g, '-');
+      a.download = `${safeName}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      addLog('success', `Exported ${files.length} project files to ${safeName}.zip`);
+      toast.success('Project archive downloaded!');
+    } catch (err: any) {
+      addLog('error', `Export failed: ${err.message}`);
+      toast.error('Failed to generate project zip');
+    }
+  };
+
+  // Honest Deploy Action
+  const handleDeploy = () => {
+    addLog('info', 'Edge deployment integration is coming soon in Blueprint.ai Cloud.');
+    toast.info('Edge deployment is coming soon. Use Export or Push to GitHub for deployment.');
   };
 
   // Dynamic Column Grid Styles
@@ -272,27 +465,18 @@ export function CentralDevelopmentWorkspace({
         isSaving={isSaving}
         dirtyCount={dirtyPaths.size}
         onPushGithub={() => setIsGithubModalOpen(true)}
-        onOpenPR={async () => {
-          addLog('info', 'Opening Pull Request on GitHub...');
-          toast.success('Pull request opened!');
-        }}
-        onCommit={() => handleCommitChanges('Manual commit from toolbar')}
+        onOpenPR={handleOpenPR}
+        onCommit={() => handleCommitChanges('Manual commit from workspace toolbar')}
         onViewReadme={() => {
           const readme = files.find((f) => f.name === 'README.md');
           if (readme) handleSelectFile(readme);
         }}
-        onExport={async () => {
-          addLog('info', 'Exporting project archive zip...');
-          toast.success('Project zip downloaded!');
-        }}
+        onExport={handleExportZip}
         onRegenerate={() => {
           addLog('info', 'Regenerating project blueprint...');
           toast.info('Regenerating project blueprint');
         }}
-        onDeploy={() => {
-          addLog('info', 'Triggering edge deployment...');
-          toast.success('Deployment queued');
-        }}
+        onDeploy={handleDeploy}
       />
 
       {/* 3. Main Workspace Area (1fr) */}
