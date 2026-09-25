@@ -3,8 +3,9 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { SignInButton, UserButton, useUser } from '@clerk/nextjs';
-import { LayoutDashboard, Hammer, BarChart3, Settings, Zap } from 'lucide-react';
+import { LayoutDashboard, Hammer, BarChart3, Settings, Zap, ShieldCheck } from 'lucide-react';
 import { cn } from '@/utils/utils';
+import { useUserRole } from '@/hooks/useUserRole';
 
 const navItems = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
@@ -15,6 +16,7 @@ const navItems = [
 
 export default function Navbar() {
   const pathname = usePathname();
+  const { role } = useUserRole();
   const { isLoaded, isSignedIn } = useUser();
 
   return (
@@ -45,6 +47,20 @@ export default function Navbar() {
               {item.name}
             </Link>
           ))}
+          {role === 'admin' && (
+            <Link
+              href="/admin"
+              className={cn(
+                "flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition-all hover:bg-white/5",
+                (pathname ?? '').startsWith('/admin')
+                  ? "text-cyan-500 shadow-[inset_0_-2px_0_0_#00f3ff]" 
+                  : "text-white/60 hover:text-white"
+              )}
+            >
+              <ShieldCheck className="h-4 w-4" />
+              Admin
+            </Link>
+          )}
         </div>
 
         <div className="flex items-center gap-4">

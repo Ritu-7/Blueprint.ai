@@ -7,9 +7,7 @@ import { UserButton } from '@clerk/nextjs';
 import { Loader2, LayoutDashboard, Users, FolderKanban, Zap, ShieldCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-type RoleState = 'loading' | 'admin' | 'denied';
+import { useUserRole } from '@/hooks/useUserRole';
 
 // ─── Nav items ────────────────────────────────────────────────────────────────
 
@@ -107,40 +105,17 @@ function AdminSidebar() {
 // ─── Layout ───────────────────────────────────────────────────────────────────
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
-  const [roleState, setRoleState] = useState<RoleState>('loading');
+  const { role, loading } = useUserRole();
   const router = useRouter();
 
   useEffect(() => {
-    let cancelled = false;
-    async function checkRole() {
-      try {
-        const res = await fetch('/api/admin/me');
-        const json = await res.json();
-        if (cancelled) return;
-        if (json?.data?.role === 'admin') {
-          setRoleState('admin');
-        } else {
-          setRoleState('denied');
-          router.replace('/');
-        }
-      } catch {
-        if (!cancelled) {
-          setRoleState('denied');
-          router.replace('/');
-        }
-      }
+    if (!loading && role !== 'admin') {
+      router.replace('/');
     }
-    checkRole();
-    return () => {
-      cancelled = true;
-    };
-  }, [router]);
+  }, [loading, role, router]);
 
   // Show spinner while checking — never flash admin content before the check resolves
-  if (roleState === 'loading') return <FullPageSpinner />;
-
-  // 'denied' users are already being redirected; show spinner until navigation completes
-  if (roleState === 'denied') return <FullPageSpinner />;
+  if (loading || role !== 'admin') return <FullPageSpinner />;
 
   return (
     <div className="flex h-screen overflow-hidden bg-[#0a0d14] text-white">
