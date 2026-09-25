@@ -15,7 +15,7 @@ import { AIEngineeringAssistant } from './AIEngineeringAssistant';
 import { BottomWorkspaceDock, TerminalLog, ProblemItem } from './BottomWorkspaceDock';
 import { LivePreview } from './LivePreview';
 import { GithubModal } from './GithubModal';
-import { updateProject } from '@/lib/database';
+import { updateProject } from '@/lib/database.client';
 
 export function CentralDevelopmentWorkspace({
   initialProject,

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { countRecords } from '@/lib/database';
+import { countRecords } from '@/lib/database.client';
 import type { ComponentNodeType } from '@/config/schema';
 import {
   FolderKanban,

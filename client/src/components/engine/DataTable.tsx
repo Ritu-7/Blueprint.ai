@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { fetchAll, createRecord, updateRecord, deleteRecord } from '@/lib/database';
+import { fetchAll, createRecord, updateRecord, deleteRecord } from '@/lib/database.client';
 import type { ComponentNodeType } from '@/config/schema';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';

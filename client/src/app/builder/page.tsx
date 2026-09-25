@@ -8,7 +8,7 @@ import { toast } from 'sonner';
 import { Sparkles, ArrowLeft, Layers, Loader2 } from 'lucide-react';
 import { PromptBox } from '@/components/builder/PromptBox';
 import { GenerationLoader } from '@/components/builder/GenerationLoader';
-import { saveProject } from '@/lib/database';
+import { saveProject } from '@/lib/database.client';
 import { createClerkSupabaseClient } from '@/lib/supabase/client';
 
 function BuilderPageContent() {

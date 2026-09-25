@@ -7,7 +7,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { Activity, ArrowUpRight, CheckCircle2, FolderKanban, Sparkles, Plus, Layers, Terminal } from 'lucide-react';
 import { WorkspacePage } from '@/components/app/WorkspacePage';
 import { ProjectCard } from '@/components/ProjectCard';
-import { fetchUserProjects } from '@/lib/database';
+import { fetchUserProjects } from '@/lib/database.client';
 import { createClerkSupabaseClient } from '@/lib/supabase/client';
 import type { DatabaseProject } from '@/types/database';
 

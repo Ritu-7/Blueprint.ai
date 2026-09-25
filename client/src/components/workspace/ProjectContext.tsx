@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { useUser, useSession } from '@clerk/nextjs';
 import type { DatabaseProject } from '@/types/database';
-import { fetchProjectById, fetchUserProjects } from '@/lib/database';
+import { fetchProjectById, fetchUserProjects } from '@/lib/database.client';
 import { createClerkSupabaseClient } from '@/lib/supabase/client';
 
 interface ProjectContextType {

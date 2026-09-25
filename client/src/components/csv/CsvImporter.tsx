@@ -3,7 +3,7 @@
 import { useState, useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import Papa from 'papaparse';
-import { createRecord } from '@/lib/database';
+import { createRecord } from '@/lib/database.client';
 import { Button } from '@/components/ui/button';
 import { Upload, FileText, CircleCheck as CheckCircle2, CircleAlert as AlertCircle } from 'lucide-react';
 import appConfig from '@/config/appConfig.json';
