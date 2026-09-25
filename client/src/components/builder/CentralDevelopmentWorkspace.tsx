@@ -6,7 +6,6 @@ import { useUser } from '@clerk/nextjs';
 import { toast } from 'sonner';
 import type { ProjectFile } from '@/types/project';
 
-import { TopNav } from './TopNav';
 import { WorkspaceHeader } from './WorkspaceHeader';
 import { FileExplorerTree } from './FileExplorerTree';
 import { CodeEditorWorkspace } from './CodeEditorWorkspace';
@@ -255,11 +254,8 @@ export function CentralDevelopmentWorkspace({
   }, [leftWidth, rightWidth, isLeftCollapsed, isRightCollapsed]);
 
   return (
-    <div className="flex h-screen w-screen flex-col bg-[#0a0d14] overflow-hidden">
-      {/* 1. Top Navigation Bar (64px) */}
-      <TopNav />
-
-      {/* 2. Workspace Header (72px) */}
+    <div className="flex h-full w-full flex-col bg-[#0a0d14] overflow-hidden">
+      {/* Workspace Header (72px) */}
       <WorkspaceHeader
         projectName={project?.name}
         projectDescription={project?.description}
