@@ -1,12 +1,23 @@
-import { supabaseClient } from '@/lib/supabase/client';
+import { createSupabaseClient } from '@/lib/supabase/client';
+import { createServerSupabaseClient } from '@/lib/supabase/server';
 import type { DatabaseProject, ProjectInsert, ProjectUpdate } from '@/types/database';
 import { NotFoundError, AppError } from '@/lib/errors/AppError';
 import { logger } from '@/lib/logger/logger';
+import type { SupabaseClient } from '@supabase/supabase-js';
+
+async function getSupabase(clientOverride?: SupabaseClient): Promise<SupabaseClient> {
+  if (clientOverride) return clientOverride;
+  if (typeof window === 'undefined') {
+    return await createServerSupabaseClient();
+  }
+  return createSupabaseClient();
+}
 
 export class ProjectService {
-  static async saveProject(project: ProjectInsert): Promise<DatabaseProject> {
+  static async saveProject(project: ProjectInsert, client?: SupabaseClient): Promise<DatabaseProject> {
+    const supabase = await getSupabase(client);
     logger.info(`Saving new project: ${project.name}`, 'projectService');
-    const { data, error } = await supabaseClient
+    const { data, error } = await supabase
       .from('projects')
       .insert(project)
       .select()
@@ -19,9 +30,10 @@ export class ProjectService {
     return data as DatabaseProject;
   }
 
-  static async updateProject(id: string, updates: ProjectUpdate): Promise<DatabaseProject> {
+  static async updateProject(id: string, updates: ProjectUpdate, client?: SupabaseClient): Promise<DatabaseProject> {
+    const supabase = await getSupabase(client);
     logger.info(`Updating project ${id}`, 'projectService');
-    const { data, error } = await supabaseClient
+    const { data, error } = await supabase
       .from('projects')
       .update(updates)
       .eq('id', id)
@@ -35,9 +47,10 @@ export class ProjectService {
     return data as DatabaseProject;
   }
 
-  static async fetchUserProjects(userId: string): Promise<DatabaseProject[]> {
+  static async fetchUserProjects(userId: string, client?: SupabaseClient): Promise<DatabaseProject[]> {
+    const supabase = await getSupabase(client);
     logger.info(`Fetching projects for user ${userId}`, 'projectService');
-    const { data, error } = await supabaseClient
+    const { data, error } = await supabase
       .from('projects')
       .select('*')
       .eq('user_id', userId)
@@ -50,9 +63,10 @@ export class ProjectService {
     return (data || []) as DatabaseProject[];
   }
 
-  static async fetchProjectById(id: string): Promise<DatabaseProject> {
+  static async fetchProjectById(id: string, client?: SupabaseClient): Promise<DatabaseProject> {
+    const supabase = await getSupabase(client);
     logger.info(`Fetching project ${id}`, 'projectService');
-    const { data, error } = await supabaseClient
+    const { data, error } = await supabase
       .from('projects')
       .select('*')
       .eq('id', id)
@@ -65,9 +79,10 @@ export class ProjectService {
     return data as DatabaseProject;
   }
 
-  static async deleteProject(id: string): Promise<void> {
+  static async deleteProject(id: string, client?: SupabaseClient): Promise<void> {
+    const supabase = await getSupabase(client);
     logger.info(`Deleting project ${id}`, 'projectService');
-    const { error } = await supabaseClient
+    const { error } = await supabase
       .from('projects')
       .delete()
       .eq('id', id);

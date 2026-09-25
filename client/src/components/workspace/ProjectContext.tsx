@@ -1,9 +1,10 @@
 'use client';
 
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
-import { useUser } from '@clerk/nextjs';
+import { useUser, useSession } from '@clerk/nextjs';
 import type { DatabaseProject } from '@/types/database';
 import { fetchProjectById, fetchUserProjects } from '@/lib/database';
+import { createClerkSupabaseClient } from '@/lib/supabase/client';
 
 interface ProjectContextType {
   project: DatabaseProject | null;
@@ -24,6 +25,7 @@ export function ProjectProvider({
   children: React.ReactNode;
 }) {
   const { user } = useUser();
+  const { session } = useSession();
   const [project, setProject] = useState<DatabaseProject | null>(null);
   const [projectsList, setProjectsList] = useState<DatabaseProject[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -33,7 +35,8 @@ export function ProjectProvider({
     setIsLoading(true);
     setError(null);
     try {
-      const data = await fetchProjectById(projectId);
+      const supabase = createClerkSupabaseClient(session);
+      const data = await fetchProjectById(projectId, supabase);
       setProject(data as DatabaseProject);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Project not found';
@@ -41,7 +44,7 @@ export function ProjectProvider({
     } finally {
       setIsLoading(false);
     }
-  }, [projectId]);
+  }, [projectId, session]);
 
   useEffect(() => {
     loadProjectData();
@@ -51,7 +54,8 @@ export function ProjectProvider({
     async function loadUserProjects() {
       if (user?.id) {
         try {
-          const list = await fetchUserProjects(user.id);
+          const supabase = createClerkSupabaseClient(session);
+          const list = await fetchUserProjects(user.id, supabase);
           setProjectsList(list as DatabaseProject[]);
         } catch {
           // Fallback empty projects list
@@ -59,7 +63,7 @@ export function ProjectProvider({
       }
     }
     loadUserProjects();
-  }, [user]);
+  }, [user, session]);
 
   return (
     <ProjectContext.Provider

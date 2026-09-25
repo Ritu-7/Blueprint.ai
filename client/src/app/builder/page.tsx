@@ -2,13 +2,14 @@
 
 import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useUser } from '@clerk/nextjs';
+import { useUser, useSession } from '@clerk/nextjs';
 import Link from 'next/link';
 import { toast } from 'sonner';
 import { Sparkles, ArrowLeft, Layers, Loader2 } from 'lucide-react';
 import { PromptBox } from '@/components/builder/PromptBox';
 import { GenerationLoader } from '@/components/builder/GenerationLoader';
 import { saveProject } from '@/lib/database';
+import { createClerkSupabaseClient } from '@/lib/supabase/client';
 
 function BuilderPageContent() {
   const router = useRouter();
@@ -16,6 +17,7 @@ function BuilderPageContent() {
   const initialQuery = searchParams?.get('prompt') || '';
 
   const { user } = useUser();
+  const { session } = useSession();
   const [isLoading, setIsLoading] = useState(false);
   const [history, setHistory] = useState<{ prompt: string; date: string }[]>([]);
 
@@ -62,7 +64,8 @@ function BuilderPageContent() {
 
       const generated = responseData.data;
 
-      // 2. Persist to Supabase database
+      // 2. Persist to Supabase database using authenticated Clerk client
+      const supabase = createClerkSupabaseClient(session);
       const newProject = await saveProject({
         user_id: user?.id || 'anonymous',
         name: generated.name || 'AI Application Blueprint',
@@ -74,7 +77,7 @@ function BuilderPageContent() {
         readme_code: generated.readme_code || '',
         files: generated.files || [],
         status: 'active',
-      });
+      }, supabase);
 
       if (newProject?.id) {
         toast.success(`Blueprint created for "${newProject.name}"!`);

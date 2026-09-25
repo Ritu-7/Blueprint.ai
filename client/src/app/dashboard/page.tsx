@@ -2,12 +2,13 @@
 
 import { useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
-import { useUser } from '@clerk/nextjs';
+import { useUser, useSession } from '@clerk/nextjs';
 import { formatDistanceToNow } from 'date-fns';
 import { Activity, ArrowUpRight, CheckCircle2, FolderKanban, Sparkles, Plus, Layers, Terminal } from 'lucide-react';
 import { WorkspacePage } from '@/components/app/WorkspacePage';
 import { ProjectCard } from '@/components/ProjectCard';
 import { fetchUserProjects } from '@/lib/database';
+import { createClerkSupabaseClient } from '@/lib/supabase/client';
 import type { DatabaseProject } from '@/types/database';
 
 function formatRelativeTime(dateStr?: string): string {
@@ -23,6 +24,7 @@ function formatRelativeTime(dateStr?: string): string {
 
 export default function DashboardPage() {
   const { user, isLoaded } = useUser();
+  const { session } = useSession();
   const [projects, setProjects] = useState<DatabaseProject[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -30,7 +32,8 @@ export default function DashboardPage() {
     async function loadProjects() {
       if (user?.id) {
         try {
-          const data = await fetchUserProjects(user.id);
+          const supabase = createClerkSupabaseClient(session);
+          const data = await fetchUserProjects(user.id, supabase);
           if (data) setProjects(data as DatabaseProject[]);
         } catch (err) {
           console.error('[dashboard] Error loading projects:', err);
@@ -42,7 +45,7 @@ export default function DashboardPage() {
     if (isLoaded) {
       loadProjects();
     }
-  }, [user, isLoaded]);
+  }, [user, isLoaded, session]);
 
   const totalFiles = useMemo(
     () => projects.reduce((acc, p) => acc + (p.files?.length || 0), 0),
