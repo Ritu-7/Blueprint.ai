@@ -3,7 +3,7 @@ export type TemplateKind = 'todo' | 'ecommerce' | 'dashboard' | 'portfolio' | 'c
 export type ProjectFile = {
   path: string;
   name: string;
-  language: 'tsx' | 'ts' | 'sql' | 'json' | 'md';
+  language: 'tsx' | 'ts' | 'css' | 'sql' | 'json' | 'md';
   content: string;
 };
 
@@ -28,15 +28,116 @@ const kindLabels: Record<TemplateKind, string> = {
   crm: 'Pipeline CRM',
 };
 
+type WeightedKeyword = { pattern: RegExp; weight: number };
+
+const kindKeywords: Record<TemplateKind, WeightedKeyword[]> = {
+  todo: [
+    { pattern: /\btodo\b/, weight: 3 },
+    { pattern: /\bto-do\b/, weight: 3 },
+    { pattern: /\btask\b/, weight: 3 },
+    { pattern: /\btasks\b/, weight: 3 },
+    { pattern: /\bchecklist\b/, weight: 3 },
+    { pattern: /\breminder\b/, weight: 2 },
+    { pattern: /\breminders\b/, weight: 2 },
+    { pattern: /\btrack(ing|er)?\b/, weight: 1 },
+    { pattern: /\bbacklog\b/, weight: 2 },
+    { pattern: /\bkanban\b/, weight: 2 },
+    { pattern: /\bplanner\b/, weight: 2 },
+  ],
+  ecommerce: [
+    { pattern: /\becommerce\b/, weight: 3 },
+    { pattern: /\be-commerce\b/, weight: 3 },
+    { pattern: /\bcheckout\b/, weight: 3 },
+    { pattern: /\bshopping cart\b/, weight: 3 },
+    { pattern: /\bstorefront\b/, weight: 3 },
+    { pattern: /\bonline store\b/, weight: 3 },
+    { pattern: /\bshop\b/, weight: 2 },
+    { pattern: /\bcart\b/, weight: 2 },
+    { pattern: /\bsell\b/, weight: 2 },
+    { pattern: /\bmerchandi[sz](ing|e)\b/, weight: 2 },
+    { pattern: /\bproduct\b/, weight: 1 },
+    { pattern: /\bproducts\b/, weight: 1 },
+    { pattern: /\bstore\b/, weight: 1 },
+    { pattern: /\binventory\b/, weight: 1 },
+  ],
+  dashboard: [
+    { pattern: /\bdashboard\b/, weight: 3 },
+    { pattern: /\banalytics\b/, weight: 3 },
+    { pattern: /\bkpi\b/, weight: 3 },
+    { pattern: /\bkpis\b/, weight: 3 },
+    { pattern: /\bmetric\b/, weight: 2 },
+    { pattern: /\bmetrics\b/, weight: 2 },
+    { pattern: /\bchart\b/, weight: 2 },
+    { pattern: /\bcharts\b/, weight: 2 },
+    { pattern: /\breport\b/, weight: 2 },
+    { pattern: /\breports\b/, weight: 2 },
+    { pattern: /\bvisuali[sz](ation|e)\b/, weight: 2 },
+    { pattern: /\binsight\b/, weight: 1 },
+    { pattern: /\binsights\b/, weight: 1 },
+  ],
+  portfolio: [
+    { pattern: /\bportfolio\b/, weight: 3 },
+    { pattern: /\bpersonal site\b/, weight: 3 },
+    { pattern: /\bpersonal website\b/, weight: 3 },
+    { pattern: /\bresume\b/, weight: 3 },
+    { pattern: /\bphotographer\b/, weight: 3 },
+    { pattern: /\bdesigner\b/, weight: 2 },
+    { pattern: /\bcreator\b/, weight: 2 },
+    { pattern: /\bshowcase\b/, weight: 2 },
+    { pattern: /\bcase stud(y|ies)\b/, weight: 2 },
+    { pattern: /\bfreelance\b/, weight: 2 },
+  ],
+  chat: [
+    { pattern: /\bchat\b/, weight: 3 },
+    { pattern: /\bmessaging\b/, weight: 3 },
+    { pattern: /\bsupport (chat|widget|bot)\b/, weight: 3 },
+    { pattern: /\bconversation\b/, weight: 2 },
+    { pattern: /\bconversations\b/, weight: 2 },
+    { pattern: /\binbox\b/, weight: 2 },
+    { pattern: /\bmessage\b/, weight: 2 },
+    { pattern: /\bmessages\b/, weight: 2 },
+    { pattern: /\bchatbot\b/, weight: 3 },
+    { pattern: /\blive chat\b/, weight: 3 },
+    { pattern: /\bthread\b/, weight: 1 },
+    { pattern: /\bthreads\b/, weight: 1 },
+  ],
+  crm: [
+    { pattern: /\bcrm\b/, weight: 3 },
+    { pattern: /\blead\b/, weight: 3 },
+    { pattern: /\bleads\b/, weight: 3 },
+    { pattern: /\bpipeline\b/, weight: 2 },
+    { pattern: /\bsales\b/, weight: 2 },
+    { pattern: /\bdeal\b/, weight: 2 },
+    { pattern: /\bdeals\b/, weight: 2 },
+    { pattern: /\bcustomer relationship\b/, weight: 3 },
+    { pattern: /\bprospect\b/, weight: 2 },
+    { pattern: /\bprospects\b/, weight: 2 },
+    { pattern: /\bcustomer\b/, weight: 1 },
+    { pattern: /\bcustomers\b/, weight: 1 },
+  ],
+};
+
 export function detectTemplateKind(prompt: string): TemplateKind {
   const text = prompt.toLowerCase();
 
-  if (/(shop|store|commerce|ecommerce|product|cart|checkout)/.test(text)) return 'ecommerce';
-  if (/(dashboard|analytics|metric|chart|report|kpi)/.test(text)) return 'dashboard';
-  if (/(portfolio|personal site|resume|creator|designer|photographer)/.test(text)) return 'portfolio';
-  if (/(chat|message|messaging|inbox|conversation|support bot)/.test(text)) return 'chat';
-  if (/(crm|lead|customer|pipeline|sales|deal)/.test(text)) return 'crm';
-  return 'todo';
+  const kinds = Object.keys(kindKeywords) as TemplateKind[];
+  let bestKind: TemplateKind = 'todo';
+  let bestScore = 0;
+
+  for (const kind of kinds) {
+    let score = 0;
+    for (const { pattern, weight } of kindKeywords[kind]) {
+      if (pattern.test(text)) {
+        score += weight;
+      }
+    }
+    if (score > bestScore) {
+      bestScore = score;
+      bestKind = kind;
+    }
+  }
+
+  return bestKind;
 }
 
 function titleFromPrompt(prompt: string, kind: TemplateKind) {
@@ -218,6 +319,13 @@ Response shape:
 }`;
 }
 
+function slugify(text: string) {
+  return text
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)/g, '');
+}
+
 function filesFor(kind: TemplateKind, title: string, schema: string, api: string): ProjectFile[] {
   const componentName: Record<TemplateKind, string> = {
     todo: 'TodoList',
@@ -226,6 +334,267 @@ function filesFor(kind: TemplateKind, title: string, schema: string, api: string
     portfolio: 'ProjectShowcase',
     chat: 'ConversationView',
     crm: 'PipelineBoard',
+  };
+
+  const featureComponentName: Record<TemplateKind, string> = {
+    todo: 'TaskFilters',
+    ecommerce: 'CartSummary',
+    dashboard: 'MetricTrend',
+    portfolio: 'ContactForm',
+    chat: 'MessageComposer',
+    crm: 'DealCard',
+  };
+
+  const featureComponentContent: Record<TemplateKind, string> = {
+    todo: `'use client';
+
+import { Search } from 'lucide-react';
+
+const filters = ['All', 'Active', 'Completed', 'High Priority'];
+
+export function TaskFilters({
+  active = 'All',
+  onFilter,
+}: {
+  active?: string;
+  onFilter?: (filter: string) => void;
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+      <div className="relative flex-1">
+        <Search className="absolute left-3 top-2.5 h-4 w-4 text-white/30" />
+        <input
+          type="text"
+          placeholder="Search tasks…"
+          className="h-9 w-full rounded-lg border border-white/[0.06] bg-white/[0.04] pl-9 pr-3 text-sm text-white placeholder-white/30 focus:border-cyan-400 focus:outline-none"
+        />
+      </div>
+      <div className="flex gap-2">
+        {filters.map((f) => (
+          <button
+            key={f}
+            onClick={() => onFilter?.(f)}
+            className={\`rounded-lg px-3 py-1.5 text-xs font-bold transition-colors \${
+              active === f
+                ? 'bg-cyan-400 text-[#05070a]'
+                : 'bg-white/[0.04] text-white/50 hover:text-white'
+            }\`}
+          >
+            {f}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}`,
+    ecommerce: `'use client';
+
+import { Sparkles } from 'lucide-react';
+
+export function CartSummary({
+  itemCount = 3,
+  subtotal = 247.0,
+}: {
+  itemCount?: number;
+  subtotal?: number;
+}) {
+  const shipping = subtotal > 100 ? 0 : 9.99;
+  const total = subtotal + shipping;
+
+  return (
+    <aside className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+      <h2 className="text-sm font-black uppercase tracking-[0.2em] text-white/50">
+        Cart Summary
+      </h2>
+      <div className="mt-4 space-y-3 text-sm">
+        <div className="flex justify-between text-white/60">
+          <span>Items ({itemCount})</span>
+          <span>\${subtotal.toFixed(2)}</span>
+        </div>
+        <div className="flex justify-between text-white/60">
+          <span>Shipping</span>
+          <span>{shipping === 0 ? 'Free' : \`\$\${shipping.toFixed(2)}\`}</span>
+        </div>
+        <div className="border-t border-white/10 pt-3 flex justify-between font-black text-white">
+          <span>Total</span>
+          <span>\${total.toFixed(2)}</span>
+        </div>
+      </div>
+      <button className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-cyan-400 py-2.5 text-sm font-black text-[#05070a]">
+        <Sparkles className="h-4 w-4" />
+        Checkout
+      </button>
+    </aside>
+  );
+}`,
+    dashboard: `'use client';
+
+import { ArrowUpRight } from 'lucide-react';
+
+const dataPoints = [18, 32, 28, 45, 42, 55, 48, 62, 58, 71, 68, 76];
+const maxVal = Math.max(...dataPoints);
+
+export function MetricTrend({
+  label = 'Revenue',
+  value = '$12,482',
+  change = '+18.2%',
+}: {
+  label?: string;
+  value?: string;
+  change?: string;
+}) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+      <div className="flex items-center justify-between">
+        <p className="text-xs font-bold uppercase tracking-[0.2em] text-white/40">{label}</p>
+        <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-400">
+          <ArrowUpRight className="h-3.5 w-3.5" />
+          {change}
+        </span>
+      </div>
+      <strong className="mt-2 block text-3xl font-black text-white">{value}</strong>
+      <div className="mt-4 flex items-end gap-1 h-16">
+        {dataPoints.map((dp, i) => (
+          <div
+            key={i}
+            className="flex-1 rounded-sm bg-cyan-400/30"
+            style={{ height: \`\${(dp / maxVal) * 100}%\` }}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}`,
+    portfolio: `'use client';
+
+import { ArrowUpRight } from 'lucide-react';
+
+export function ContactForm() {
+  return (
+    <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-6">
+      <h2 className="text-sm font-black uppercase tracking-[0.2em] text-white/50">
+        Get In Touch
+      </h2>
+      <p className="mt-2 text-sm text-white/40">
+        Interested in working together? Drop me a message.
+      </p>
+      <form className="mt-5 space-y-4" onSubmit={(e) => e.preventDefault()}>
+        <div className="grid gap-4 md:grid-cols-2">
+          <input
+            type="text"
+            placeholder="Name"
+            className="h-10 rounded-lg border border-white/[0.06] bg-white/[0.04] px-3 text-sm text-white placeholder-white/30 focus:border-cyan-400 focus:outline-none"
+          />
+          <input
+            type="email"
+            placeholder="Email"
+            className="h-10 rounded-lg border border-white/[0.06] bg-white/[0.04] px-3 text-sm text-white placeholder-white/30 focus:border-cyan-400 focus:outline-none"
+          />
+        </div>
+        <textarea
+          rows={4}
+          placeholder="Tell me about your project…"
+          className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] p-3 text-sm text-white placeholder-white/30 focus:border-cyan-400 focus:outline-none resize-none"
+        />
+        <button
+          type="submit"
+          className="inline-flex items-center gap-2 rounded-xl bg-cyan-400 px-5 py-2.5 text-sm font-black text-[#05070a]"
+        >
+          Send Message
+          <ArrowUpRight className="h-4 w-4" />
+        </button>
+      </form>
+    </section>
+  );
+}`,
+    chat: `'use client';
+
+import { ArrowUpRight } from 'lucide-react';
+
+export function MessageComposer({
+  onSend,
+}: {
+  onSend?: (message: string) => void;
+}) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+      <div className="flex items-end gap-3">
+        <textarea
+          rows={2}
+          placeholder="Type a message…"
+          className="flex-1 rounded-lg border border-white/[0.06] bg-white/[0.04] p-3 text-sm text-white placeholder-white/30 focus:border-cyan-400 focus:outline-none resize-none"
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault();
+              const target = e.target as HTMLTextAreaElement;
+              if (target.value.trim()) {
+                onSend?.(target.value.trim());
+                target.value = '';
+              }
+            }
+          }}
+        />
+        <button
+          onClick={() => {}}
+          className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-cyan-400 text-[#05070a]"
+        >
+          <ArrowUpRight className="h-4 w-4" />
+        </button>
+      </div>
+      <div className="mt-3 flex gap-2 text-xs text-white/30">
+        <span className="rounded bg-white/[0.04] px-2 py-1">Markdown supported</span>
+        <span className="rounded bg-white/[0.04] px-2 py-1">Shift+Enter for new line</span>
+      </div>
+    </div>
+  );
+}`,
+    crm: `'use client';
+
+import { ArrowUpRight } from 'lucide-react';
+
+const stages: Record<string, string> = {
+  qualified: 'bg-blue-400/20 text-blue-300',
+  proposal: 'bg-amber-400/20 text-amber-300',
+  negotiation: 'bg-purple-400/20 text-purple-300',
+  'closed won': 'bg-emerald-400/20 text-emerald-300',
+};
+
+export function DealCard({
+  company = 'Acme Studio',
+  contact = 'Jane Cooper',
+  value = 24000,
+  stage = 'proposal',
+  nextStep = 'Follow-up call on Friday',
+}: {
+  company?: string;
+  contact?: string;
+  value?: number;
+  stage?: string;
+  nextStep?: string;
+}) {
+  const stageStyle = stages[stage] || 'bg-white/[0.06] text-white/50';
+
+  return (
+    <article className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+      <div className="flex items-start justify-between">
+        <div>
+          <h3 className="font-black text-white">{company}</h3>
+          <p className="mt-1 text-xs text-white/40">{contact}</p>
+        </div>
+        <span className={\`rounded-full px-2.5 py-1 text-xs font-bold capitalize \${stageStyle}\`}>
+          {stage}
+        </span>
+      </div>
+      <strong className="mt-3 block text-2xl font-black text-white">
+        \${value.toLocaleString()}
+      </strong>
+      <div className="mt-4 flex items-center justify-between rounded-xl bg-white/[0.04] p-3">
+        <span className="text-xs text-white/50">{nextStep}</span>
+        <ArrowUpRight className="h-3.5 w-3.5 text-cyan-400" />
+      </div>
+    </article>
+  );
+}`,
   };
 
   const featureBody: Record<TemplateKind, string> = {
@@ -274,13 +643,93 @@ function filesFor(kind: TemplateKind, title: string, schema: string, api: string
   };
 
   const pageCode = pageShell(title, featureBody[kind]);
+  const slug = slugify(title);
+
+  const globalsCss = `@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  background-color: #05070a;
+  color: #ffffff;
+}
+
+* {
+  box-sizing: border-box;
+}`;
+
+  const packageJson = JSON.stringify(
+    {
+      name: slug || 'blueprint-project',
+      version: '0.1.0',
+      private: true,
+      scripts: {
+        dev: 'next dev',
+        build: 'next build',
+        start: 'next start',
+        lint: 'next lint',
+      },
+      dependencies: {
+        next: '^14.2.0',
+        react: '^18.3.0',
+        'react-dom': '^18.3.0',
+        'lucide-react': '^0.400.0',
+      },
+      devDependencies: {
+        typescript: '^5.4.0',
+        '@types/node': '^20.0.0',
+        '@types/react': '^18.3.0',
+        '@types/react-dom': '^18.3.0',
+        tailwindcss: '^3.4.0',
+        postcss: '^8.4.0',
+        autoprefixer: '^10.4.0',
+      },
+    },
+    null,
+    2,
+  );
+
+  const readme = `# ${title}
+
+${kindLabels[kind]} — generated by Blueprint.ai.
+
+## Getting Started
+
+\`\`\`bash
+npm install
+npm run dev
+\`\`\`
+
+Open [http://localhost:3000](http://localhost:3000) in your browser.
+
+## API Routes
+
+${api}
+
+## Database Schema
+
+The Supabase schema is in \`supabase/schema.sql\`. Apply it with:
+
+\`\`\`bash
+supabase db reset   # or paste into the Supabase SQL editor
+\`\`\`
+
+## Project Structure
+
+- \`app/\` — Next.js App Router pages and layouts
+- \`components/\` — Reusable UI components
+- \`app/api/\` — API route handlers
+- \`supabase/\` — Database schema
+- \`docs/\` — API documentation
+`;
 
   return [
-    { path: 'app/page.tsx', name: 'page.tsx', language: 'tsx', content: pageCode },
+    { path: 'app/globals.css', name: 'globals.css', language: 'css' as const, content: globalsCss },
+    { path: 'app/page.tsx', name: 'page.tsx', language: 'tsx' as const, content: pageCode },
     {
       path: 'app/layout.tsx',
       name: 'layout.tsx',
-      language: 'tsx',
+      language: 'tsx' as const,
       content: `import './globals.css';
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -294,7 +743,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     {
       path: `components/${componentName[kind]}.tsx`,
       name: `${componentName[kind]}.tsx`,
-      language: 'tsx',
+      language: 'tsx' as const,
       content: `export function ${componentName[kind]}() {
   return (
     <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
@@ -305,9 +754,15 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 }`,
     },
     {
+      path: `components/${featureComponentName[kind]}.tsx`,
+      name: `${featureComponentName[kind]}.tsx`,
+      language: 'tsx' as const,
+      content: featureComponentContent[kind],
+    },
+    {
       path: `app/api/${kind}/route.ts`,
       name: 'route.ts',
-      language: 'ts',
+      language: 'ts' as const,
       content: `import { NextResponse } from 'next/server';
 
 export async function GET() {
@@ -319,8 +774,10 @@ export async function POST(request: Request) {
   return NextResponse.json({ success: true, data: body }, { status: 201 });
 }`,
     },
-    { path: 'supabase/schema.sql', name: 'schema.sql', language: 'sql', content: schema },
-    { path: 'docs/api.md', name: 'api.md', language: 'md', content: api },
+    { path: 'supabase/schema.sql', name: 'schema.sql', language: 'sql' as const, content: schema },
+    { path: 'docs/api.md', name: 'api.md', language: 'md' as const, content: api },
+    { path: 'package.json', name: 'package.json', language: 'json' as const, content: packageJson },
+    { path: 'README.md', name: 'README.md', language: 'md' as const, content: readme },
   ];
 }
 

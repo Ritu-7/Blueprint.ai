@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useRef, useCallback } from 'react';
 import {
   Check, Code2, Copy, Download, Eye, FileCode2,
   FileJson, FileText, Save, Wand2, X, AlertTriangle, FileX2
@@ -47,6 +47,15 @@ export function CodeEditorWorkspace({
   const isDirty = activeFile ? dirtyPaths.has(activeFile.path) : false;
 
   const lines = useMemo(() => currentContent.split('\n'), [currentContent]);
+
+  const gutterRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const syncScroll = useCallback(() => {
+    if (gutterRef.current && textareaRef.current) {
+      gutterRef.current.scrollTop = textareaRef.current.scrollTop;
+    }
+  }, []);
 
   // Syntax check
   const syntaxErrors = useMemo(() => {
@@ -146,7 +155,7 @@ export function CodeEditorWorkspace({
 
         {/* Action Toolbar */}
         {activeFile && (
-          <div className="flex items-center gap-1.5 px-2 shrink-0">
+          <div className="flex items-center gap-3 pl-3 shrink-0">
             {isDirty && (
               <button
                 onClick={() => onSaveFile(activeFile.path)}
@@ -157,31 +166,38 @@ export function CodeEditorWorkspace({
                 <span>Save</span>
               </button>
             )}
-            <button
-              onClick={() => onFormatFile(activeFile.path)}
-              className="p-1.5 rounded-md text-white/40 hover:text-cyan-300 hover:bg-white/[0.06] transition-colors"
-              title="Format File"
-            >
-              <Wand2 className="h-3.5 w-3.5" />
-            </button>
-            <button
-              onClick={copy}
-              className="p-1.5 rounded-md text-white/40 hover:text-cyan-300 hover:bg-white/[0.06] transition-colors"
-              title="Copy Code"
-            >
-              {copied ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
-            </button>
-            <button
-              onClick={download}
-              className="p-1.5 rounded-md text-white/40 hover:text-cyan-300 hover:bg-white/[0.06] transition-colors"
-              title="Download File"
-            >
-              <Download className="h-3.5 w-3.5" />
-            </button>
+            {/* Vertical separator */}
+            <div className="h-5 w-px bg-white/[0.08] shrink-0" />
+            {/* Icon group pill */}
+            <div className="flex items-center gap-1 rounded-lg bg-white/[0.03] px-1.5 py-1">
+              <button
+                onClick={() => onFormatFile(activeFile.path)}
+                className="p-1.5 rounded-md text-white/40 hover:text-cyan-300 hover:bg-white/[0.06] transition-colors"
+                title="Format File"
+              >
+                <Wand2 className="h-3.5 w-3.5" />
+              </button>
+              <button
+                onClick={copy}
+                className="p-1.5 rounded-md text-white/40 hover:text-cyan-300 hover:bg-white/[0.06] transition-colors"
+                title="Copy Code"
+              >
+                {copied ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
+              </button>
+              <button
+                onClick={download}
+                className="p-1.5 rounded-md text-white/40 hover:text-cyan-300 hover:bg-white/[0.06] transition-colors"
+                title="Download File"
+              >
+                <Download className="h-3.5 w-3.5" />
+              </button>
+            </div>
+            {/* Vertical separator */}
+            <div className="h-5 w-px bg-white/[0.08] shrink-0" />
             <button
               onClick={onTogglePreview}
               className={cn(
-                'flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium border transition-colors ml-1',
+                'flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium border transition-colors',
                 isPreviewOpen
                   ? 'bg-cyan-400/10 border-cyan-400/30 text-cyan-300'
                   : 'border-white/[0.06] text-white/50 hover:text-white hover:bg-white/[0.06]'
@@ -206,9 +222,12 @@ export function CodeEditorWorkspace({
       {/* Code Editor Body */}
       {activeFile ? (
         <div className="relative min-h-0 flex-1 flex flex-col">
-          <div className="flex flex-1 min-h-0 overflow-auto bg-[#0a0d14] font-mono text-[13px] leading-[1.7] custom-scrollbar">
-            {/* 48px Fixed Width Line Numbers Gutter */}
-            <div className="select-none py-4 text-right text-white/20 border-r border-white/[0.06] bg-[#070a0f] shrink-0 font-mono text-[12px] min-w-[48px] pr-3">
+          <div className="flex flex-1 min-h-0 bg-[#0a0d14] font-mono text-[13px] leading-[1.7]">
+            {/* Line Numbers Gutter — overflow hidden, scrolled programmatically */}
+            <div
+              ref={gutterRef}
+              className="select-none py-4 text-right text-white/20 border-r border-white/[0.06] bg-[#070a0f] shrink-0 font-mono text-[12px] leading-[1.7] min-w-[48px] pr-3 overflow-y-hidden"
+            >
               {lines.map((_, i) => (
                 <div
                   key={i}
@@ -222,19 +241,21 @@ export function CodeEditorWorkspace({
               ))}
             </div>
 
-            {/* Content Textarea */}
+            {/* Content Textarea — drives scroll for both */}
             <div className="relative flex-1 min-w-0">
               <textarea
+                ref={textareaRef}
                 value={currentContent}
                 onChange={(e) => {
                   onChangeContent(activeFile.path, e.target.value);
                   updateCursor(e);
                 }}
+                onScroll={syncScroll}
                 onSelect={updateCursor}
                 onClick={updateCursor}
                 onKeyUp={updateCursor}
                 spellCheck={false}
-                className="w-full h-full min-h-[400px] resize-none bg-transparent p-4 font-mono text-[13px] leading-[1.7] text-cyan-100/90 outline-none focus:outline-none focus:ring-0 border-none select-text"
+                className="w-full h-full min-h-[400px] resize-none bg-transparent p-4 font-mono text-[13px] leading-[1.7] text-cyan-100/90 outline-none focus:outline-none focus:ring-0 border-none select-text overflow-auto custom-scrollbar"
               />
             </div>
           </div>

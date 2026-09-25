@@ -62,6 +62,7 @@ function FileIcon({ language }: { language: string }) {
   if (language === 'json') return <FileJson className="h-4 w-4 text-amber-300 shrink-0" />;
   if (language === 'md') return <FileText className="h-4 w-4 text-emerald-400 shrink-0" />;
   if (language === 'sql') return <FileText className="h-4 w-4 text-purple-300 shrink-0" />;
+  if (language === 'css') return <FileCode2 className="h-4 w-4 text-pink-400 shrink-0" />;
   return <FileCode2 className="h-4 w-4 text-cyan-400 shrink-0" />;
 }
 
