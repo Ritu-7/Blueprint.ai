@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { SignInButton, UserButton, useUser } from '@clerk/nextjs';
+import { UserButton, useUser } from '@clerk/nextjs';
 import { LayoutDashboard, Hammer, BarChart3, Settings, Zap, ShieldCheck } from 'lucide-react';
 import { cn } from '@/utils/utils';
 import { useUserRole } from '@/hooks/useUserRole';
@@ -63,7 +63,7 @@ export default function Navbar() {
           )}
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
           {isLoaded && isSignedIn ? (
             <UserButton
               appearance={{
@@ -73,11 +73,20 @@ export default function Navbar() {
               }}
             />
           ) : isLoaded ? (
-            <SignInButton mode="modal">
-              <button className="rounded-md bg-cyan-500 px-4 py-2 text-sm font-bold text-background shadow-[0_0_15px_rgba(0,243,255,0.3)] transition-all hover:scale-105 hover:shadow-[0_0_25px_rgba(0,243,255,0.5)]">
+            <>
+              <Link
+                href="/sign-in"
+                className="rounded-md px-4 py-2 text-sm font-medium text-white/70 transition-colors hover:text-white"
+              >
                 Sign In
-              </button>
-            </SignInButton>
+              </Link>
+              <Link
+                href="/sign-up"
+                className="rounded-md bg-cyan-400 px-4 py-2 text-sm font-black text-[#05070a] shadow-[0_0_15px_rgba(34,211,238,0.3)] transition-all hover:scale-105 hover:shadow-[0_0_25px_rgba(34,211,238,0.5)]"
+              >
+                Sign Up
+              </Link>
+            </>
           ) : null}
         </div>
       </div>
