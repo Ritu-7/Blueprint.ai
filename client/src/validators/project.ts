@@ -8,7 +8,7 @@ export const generatePromptSchema = z.object({
 export const projectFileSchema = z.object({
   path: z.string().min(1),
   name: z.string().min(1),
-  language: z.enum(['tsx', 'ts', 'css', 'sql', 'json', 'md']),
+  language: z.enum(['tsx', 'ts', 'css', 'sql', 'json', 'md', 'js']),
   content: z.string(),
 });
 
