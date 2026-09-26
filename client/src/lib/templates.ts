@@ -3,7 +3,7 @@ export type TemplateKind = 'todo' | 'ecommerce' | 'dashboard' | 'portfolio' | 'c
 export type ProjectFile = {
   path: string;
   name: string;
-  language: 'tsx' | 'ts' | 'css' | 'sql' | 'json' | 'md';
+  language: 'tsx' | 'ts' | 'css' | 'sql' | 'json' | 'md' | 'js';
   content: string;
 };
 
@@ -723,6 +723,88 @@ supabase db reset   # or paste into the Supabase SQL editor
 - \`docs/\` — API documentation
 `;
 
+  const tailwindConfig = `/** @type {import('tailwindcss').Config} */
+module.exports = {
+  darkMode: 'class',
+  content: [
+    './app/**/*.{ts,tsx}',
+    './components/**/*.{ts,tsx}',
+  ],
+  theme: {
+    extend: {
+      colors: {
+        // Cyan accent used throughout the generated components
+        accent: '#22d3ee',
+        cyan: {
+          400: '#22d3ee',
+        },
+        background: '#05070a',
+      },
+    },
+  },
+  plugins: [],
+};`;
+
+  const postcssConfig = `module.exports = {
+  plugins: {
+    tailwindcss: {},
+    autoprefixer: {},
+  },
+};`;
+
+  const nextConfig = `/** @type {import('next').NextConfig} */
+const nextConfig = {
+  reactStrictMode: true,
+};
+
+module.exports = nextConfig;`;
+
+  // Generated files use relative imports only (no @/ aliases), so a plain
+  // standard Next.js tsconfig is sufficient.
+  const tsconfigJson = JSON.stringify(
+    {
+      compilerOptions: {
+        target: 'es5',
+        lib: ['dom', 'dom.iterable', 'esnext'],
+        allowJs: true,
+        skipLibCheck: true,
+        strict: true,
+        noEmit: true,
+        esModuleInterop: true,
+        module: 'esnext',
+        moduleResolution: 'bundler',
+        resolveJsonModule: true,
+        isolatedModules: true,
+        jsx: 'preserve',
+        incremental: true,
+        plugins: [{ name: 'next' }],
+        paths: {
+          '@/*': ['./*'],
+        },
+      },
+      include: ['next-env.d.ts', '**/*.ts', '**/*.tsx', '.next/types/**/*.ts'],
+      exclude: ['node_modules'],
+    },
+    null,
+    2,
+  );
+
+  const gitignore = `# dependencies
+node_modules
+
+# Next.js build output
+.next
+out
+
+# local env files
+.env*.local
+.env.local
+
+# misc
+.DS_Store
+*.tsbuildinfo
+`;
+
   return [
     { path: 'app/globals.css', name: 'globals.css', language: 'css' as const, content: globalsCss },
     { path: 'app/page.tsx', name: 'page.tsx', language: 'tsx' as const, content: pageCode },
@@ -778,6 +860,11 @@ export async function POST(request: Request) {
     { path: 'docs/api.md', name: 'api.md', language: 'md' as const, content: api },
     { path: 'package.json', name: 'package.json', language: 'json' as const, content: packageJson },
     { path: 'README.md', name: 'README.md', language: 'md' as const, content: readme },
+    { path: 'tailwind.config.js', name: 'tailwind.config.js', language: 'js' as const, content: tailwindConfig },
+    { path: 'postcss.config.js', name: 'postcss.config.js', language: 'js' as const, content: postcssConfig },
+    { path: 'next.config.js', name: 'next.config.js', language: 'js' as const, content: nextConfig },
+    { path: 'tsconfig.json', name: 'tsconfig.json', language: 'json' as const, content: tsconfigJson },
+    { path: '.gitignore', name: '.gitignore', language: 'md' as const, content: gitignore },
   ];
 }
 

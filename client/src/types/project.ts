@@ -1,6 +1,6 @@
 export type TemplateKind = 'todo' | 'ecommerce' | 'dashboard' | 'portfolio' | 'chat' | 'crm';
 
-export type ProjectFileLanguage = 'tsx' | 'ts' | 'css' | 'sql' | 'json' | 'md';
+export type ProjectFileLanguage = 'tsx' | 'ts' | 'css' | 'sql' | 'json' | 'md' | 'js';
 
 export interface ProjectFile {
   path: string;
