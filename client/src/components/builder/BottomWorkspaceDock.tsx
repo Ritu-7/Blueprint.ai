@@ -140,7 +140,7 @@ export function BottomWorkspaceDock({
                   if (!isExpanded) onToggleExpand();
                 }}
                 className={cn(
-                  'flex h-full items-center gap-2 border-b-2 px-3 text-xs font-medium transition-colors',
+                  'flex h-full items-center gap-2 border-b-2 px-3 text-xs font-medium transition-colors duration-150',
                   isActive
                     ? 'border-b-cyan-400 text-cyan-300 bg-[#0a0d14]'
                     : 'border-b-transparent text-white/40 hover:text-white hover:bg-white/[0.04]'
@@ -168,7 +168,7 @@ export function BottomWorkspaceDock({
           {activeTab === 'terminal' && isExpanded && (
             <button
               onClick={onClearLogs}
-              className="p-1 rounded-md text-white/40 hover:text-white hover:bg-white/[0.06] transition-colors"
+              className="p-1 rounded-md text-white/40 hover:text-white hover:bg-white/[0.06] transition-colors duration-150 active:scale-[0.98]"
               title="Clear Terminal Logs"
             >
               <Trash2 className="h-3.5 w-3.5" />
@@ -178,7 +178,7 @@ export function BottomWorkspaceDock({
           {isExpanded && (
             <button
               onClick={() => setIsMaximized((v) => !v)}
-              className="p-1 rounded-md text-white/40 hover:text-white hover:bg-white/[0.06] transition-colors"
+              className="p-1 rounded-md text-white/40 hover:text-white hover:bg-white/[0.06] transition-colors duration-150 active:scale-[0.98]"
               title={isMaximized ? 'Restore Size' : 'Maximize Panel'}
             >
               {isMaximized ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
@@ -187,7 +187,7 @@ export function BottomWorkspaceDock({
 
           <button
             onClick={onToggleExpand}
-            className="p-1 rounded-md text-white/40 hover:text-white hover:bg-white/[0.06] transition-colors"
+            className="p-1 rounded-md text-white/40 hover:text-white hover:bg-white/[0.06] transition-colors duration-150 active:scale-[0.98]"
             title={isExpanded ? 'Collapse Dock' : 'Expand Dock'}
           >
             {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
@@ -243,7 +243,7 @@ export function BottomWorkspaceDock({
                   placeholder="Type npm test, git status..."
                   value={commandInput}
                   onChange={(e) => setCommandInput(e.target.value)}
-                  className="flex-1 bg-transparent text-xs text-white placeholder-white/30 outline-none border-none font-mono"
+                  className="flex-1 bg-transparent text-xs text-white placeholder-white/30 outline-none border-none font-mono transition-colors duration-150"
                 />
               </form>
             </div>
@@ -263,7 +263,7 @@ export function BottomWorkspaceDock({
                   <div
                     key={prob.id}
                     onClick={() => onSelectProblemFile(prob.filePath)}
-                    className="flex items-center justify-between rounded-lg border border-red-500/20 bg-red-950/20 p-2.5 text-xs text-red-200 hover:bg-red-950/40 cursor-pointer transition-colors"
+                    className="flex items-center justify-between rounded-lg border border-red-500/20 bg-red-950/20 p-2.5 text-xs text-red-200 hover:bg-red-950/40 cursor-pointer transition-colors duration-150 active:scale-[0.98]"
                   >
                     <div className="flex items-center gap-2 min-w-0">
                       <AlertTriangle className="h-4 w-4 text-red-400 shrink-0" />
@@ -296,7 +296,7 @@ export function BottomWorkspaceDock({
                     </span>
                     <button
                       onClick={onPushGithub}
-                      className="flex items-center gap-1.5 rounded-lg bg-purple-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-purple-500 transition-colors"
+                      className="flex items-center gap-1.5 rounded-lg bg-purple-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-purple-500 transition-colors duration-150 active:scale-[0.98]"
                     >
                       <GitPullRequest className="h-3.5 w-3.5" />
                       <span>Push to {repoName || 'GitHub'}</span>
@@ -318,12 +318,12 @@ export function BottomWorkspaceDock({
                       placeholder="Commit message (e.g. Update component structure)"
                       value={commitMessage}
                       onChange={(e) => setCommitMessage(e.target.value)}
-                      className="flex-1 rounded-lg border border-white/[0.06] bg-[#151a26] px-3 py-1.5 text-xs text-white placeholder-white/30 focus:border-cyan-400 focus:outline-none"
+                      className="flex-1 rounded-lg border border-white/[0.06] bg-[#151a26] px-3 py-1.5 text-xs text-white placeholder-white/30 focus:border-cyan-400 focus:outline-none transition-colors duration-150"
                     />
                     <button
                       type="submit"
                       disabled={!commitMessage.trim() || dirtyFiles.size === 0}
-                      className="rounded-lg bg-cyan-400 px-4 py-1.5 text-xs font-bold text-black disabled:opacity-30 hover:bg-cyan-300 transition-colors"
+                      className="rounded-lg bg-cyan-400 px-4 py-1.5 text-xs font-bold text-black disabled:opacity-30 hover:bg-cyan-300 transition-colors duration-150 active:scale-[0.98]"
                     >
                       Commit
                     </button>
@@ -341,7 +341,7 @@ export function BottomWorkspaceDock({
                 <button
                   onClick={handleRunTestsInternal}
                   disabled={isRunningSuite}
-                  className="flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-500 disabled:opacity-50 transition-colors"
+                  className="flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-500 disabled:opacity-50 transition-colors duration-150 active:scale-[0.98]"
                 >
                   <Play className="h-3.5 w-3.5" />
                   <span>{isRunningSuite ? 'Running Tests...' : 'Run Test Suite'}</span>

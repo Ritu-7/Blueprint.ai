@@ -150,7 +150,7 @@ export function AIEngineeringAssistant({
               key={scope}
               onClick={() => setContextScope(scope)}
               className={cn(
-                'px-2.5 py-1 rounded-md transition-all font-medium capitalize',
+                'px-2.5 py-1 rounded-md transition-all duration-150 font-medium capitalize',
                 contextScope === scope
                   ? 'bg-cyan-400/20 text-cyan-300 font-bold'
                   : 'text-white/40 hover:text-white'
@@ -167,28 +167,28 @@ export function AIEngineeringAssistant({
         <div className="grid grid-cols-2 gap-1.5 p-3 border-b border-white/[0.06] bg-black/20 shrink-0">
           <button
             onClick={() => handleQuickAction('fix')}
-            className="flex items-center justify-center gap-1.5 rounded-lg border border-red-500/30 bg-red-950/20 px-2 py-1.5 text-[11px] font-medium text-red-200 hover:bg-red-900/30 transition-colors"
+            className="flex items-center justify-center gap-1.5 rounded-lg border border-red-500/30 bg-red-950/20 px-2 py-1.5 text-[11px] font-medium text-red-200 hover:bg-red-900/30 transition-colors duration-150 active:scale-[0.98]"
           >
             <Bug className="h-3.5 w-3.5 text-red-400" />
             <span>Fix Errors</span>
           </button>
           <button
             onClick={() => handleQuickAction('refactor')}
-            className="flex items-center justify-center gap-1.5 rounded-lg border border-cyan-500/30 bg-cyan-950/20 px-2 py-1.5 text-[11px] font-medium text-cyan-200 hover:bg-cyan-900/30 transition-colors"
+            className="flex items-center justify-center gap-1.5 rounded-lg border border-cyan-500/30 bg-cyan-950/20 px-2 py-1.5 text-[11px] font-medium text-cyan-200 hover:bg-cyan-900/30 transition-colors duration-150 active:scale-[0.98]"
           >
             <Wand2 className="h-3.5 w-3.5 text-cyan-400" />
             <span>Refactor</span>
           </button>
           <button
             onClick={() => handleQuickAction('explain')}
-            className="flex items-center justify-center gap-1.5 rounded-lg border border-amber-500/30 bg-amber-950/20 px-2 py-1.5 text-[11px] font-medium text-amber-200 hover:bg-amber-900/30 transition-colors"
+            className="flex items-center justify-center gap-1.5 rounded-lg border border-amber-500/30 bg-amber-950/20 px-2 py-1.5 text-[11px] font-medium text-amber-200 hover:bg-amber-900/30 transition-colors duration-150 active:scale-[0.98]"
           >
             <BookOpen className="h-3.5 w-3.5 text-amber-400" />
             <span>Explain</span>
           </button>
           <button
             onClick={() => handleQuickAction('tests')}
-            className="flex items-center justify-center gap-1.5 rounded-lg border border-emerald-500/30 bg-emerald-950/20 px-2 py-1.5 text-[11px] font-medium text-emerald-200 hover:bg-emerald-900/30 transition-colors"
+            className="flex items-center justify-center gap-1.5 rounded-lg border border-emerald-500/30 bg-emerald-950/20 px-2 py-1.5 text-[11px] font-medium text-emerald-200 hover:bg-emerald-900/30 transition-colors duration-150 active:scale-[0.98]"
           >
             <TestTube2 className="h-3.5 w-3.5 text-emerald-400" />
             <span>Tests</span>
@@ -227,7 +227,7 @@ export function AIEngineeringAssistant({
                     {activeFile && (
                       <button
                         onClick={() => handleApply(msg)}
-                        className="flex items-center gap-1 rounded bg-cyan-400 px-2 py-0.5 text-[10px] font-bold text-black hover:bg-cyan-300 transition-colors"
+                        className="flex items-center gap-1 rounded bg-cyan-400 px-2 py-0.5 text-[10px] font-bold text-black hover:bg-cyan-300 transition-colors duration-150 active:scale-[0.98]"
                       >
                         {appliedMessageId === msg.id ? (
                           <>
@@ -280,12 +280,12 @@ export function AIEngineeringAssistant({
                 : 'Ask AI code assistant...'
             }
             rows={2}
-            className="w-full resize-none rounded-lg border border-white/[0.06] bg-[#151a26] p-3 pr-10 text-xs text-white placeholder-white/30 focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 focus:outline-none transition-all"
+            className="w-full resize-none rounded-lg border border-white/[0.06] bg-[#151a26] p-3 pr-10 text-xs text-white placeholder-white/30 focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 focus:outline-none transition-colors duration-150"
           />
           <button
             onClick={() => handleSend()}
             disabled={!prompt.trim() || isThinking}
-            className="absolute right-2.5 bottom-2.5 flex h-7 w-7 items-center justify-center rounded-md bg-cyan-400 text-black disabled:opacity-30 hover:bg-cyan-300 transition-colors"
+            className="absolute right-2.5 bottom-2.5 flex h-7 w-7 items-center justify-center rounded-md bg-cyan-400 text-black disabled:opacity-30 hover:bg-cyan-300 transition-colors duration-150 active:scale-[0.98]"
             title="Send Message (Enter)"
             aria-label="Send Message"
           >

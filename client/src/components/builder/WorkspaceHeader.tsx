@@ -84,7 +84,7 @@ export function WorkspaceHeader({
         <div className="flex items-center rounded-lg border border-white/[0.06] bg-[#151a26] p-1">
           <button
             onClick={onPushGithub}
-            className="flex h-9 w-9 items-center justify-center rounded-md text-white/60 hover:text-white hover:bg-white/[0.06] transition-colors"
+            className="flex h-9 w-9 items-center justify-center rounded-md text-white/60 hover:text-white hover:bg-white/[0.06] transition-colors duration-150 active:scale-[0.98]"
             title="Push to GitHub"
             aria-label="Push to GitHub"
           >
@@ -92,7 +92,7 @@ export function WorkspaceHeader({
           </button>
           <button
             onClick={onOpenPR}
-            className="flex h-9 w-9 items-center justify-center rounded-md text-white/60 hover:text-white hover:bg-white/[0.06] transition-colors"
+            className="flex h-9 w-9 items-center justify-center rounded-md text-white/60 hover:text-white hover:bg-white/[0.06] transition-colors duration-150 active:scale-[0.98]"
             title="Create Pull Request"
             aria-label="Create Pull Request"
           >
@@ -100,7 +100,7 @@ export function WorkspaceHeader({
           </button>
           <button
             onClick={onCommit}
-            className="flex h-9 w-9 items-center justify-center rounded-md text-white/60 hover:text-white hover:bg-white/[0.06] transition-colors"
+            className="flex h-9 w-9 items-center justify-center rounded-md text-white/60 hover:text-white hover:bg-white/[0.06] transition-colors duration-150 active:scale-[0.98]"
             title="Commit Changes"
             aria-label="Commit Changes"
           >
@@ -108,7 +108,7 @@ export function WorkspaceHeader({
           </button>
           <button
             onClick={onViewReadme}
-            className="flex h-9 w-9 items-center justify-center rounded-md text-white/60 hover:text-white hover:bg-white/[0.06] transition-colors"
+            className="flex h-9 w-9 items-center justify-center rounded-md text-white/60 hover:text-white hover:bg-white/[0.06] transition-colors duration-150 active:scale-[0.98]"
             title="View Documentation / README"
             aria-label="View Documentation / README"
           >
@@ -116,7 +116,7 @@ export function WorkspaceHeader({
           </button>
           <button
             onClick={onExport}
-            className="flex h-9 w-9 items-center justify-center rounded-md text-white/60 hover:text-white hover:bg-white/[0.06] transition-colors"
+            className="flex h-9 w-9 items-center justify-center rounded-md text-white/60 hover:text-white hover:bg-white/[0.06] transition-colors duration-150 active:scale-[0.98]"
             title="Download Workspace Archive"
             aria-label="Download Workspace Archive"
           >
@@ -127,7 +127,7 @@ export function WorkspaceHeader({
         {/* Separate Regenerate (Ghost 40px) */}
         <button
           onClick={onRegenerate}
-          className="flex h-10 items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-4 text-xs font-bold text-white/70 hover:text-white hover:bg-white/10 transition-colors uppercase tracking-wider"
+          className="flex h-10 items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-4 text-xs font-bold text-white/70 hover:text-white hover:bg-white/10 transition-colors duration-150 active:scale-[0.98] uppercase tracking-wider"
         >
           <RefreshCw className="h-3.5 w-3.5" />
           <span>Regenerate</span>
@@ -136,7 +136,7 @@ export function WorkspaceHeader({
         {/* Separate Deploy (Primary Gradient 40px) */}
         <button
           onClick={onDeploy}
-          className="flex h-10 items-center gap-2 rounded-lg bg-gradient-to-r from-cyan-400 to-blue-500 px-5 text-xs font-black text-black hover:from-cyan-300 hover:to-blue-400 transition-all shadow-[0_0_15px_rgba(0,243,255,0.35)] uppercase tracking-wider"
+          className="flex h-10 items-center gap-2 rounded-lg bg-gradient-to-r from-cyan-400 to-blue-500 px-5 text-xs font-black text-black hover:from-cyan-300 hover:to-blue-400 transition-all duration-150 active:scale-[0.98] shadow-[0_0_15px_rgba(0,243,255,0.35)] uppercase tracking-wider"
         >
           <Rocket className="h-4 w-4 text-black" />
           <span>Deploy</span>

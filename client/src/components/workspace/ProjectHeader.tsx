@@ -41,7 +41,7 @@ export function ProjectHeader({ projectId, onMobileMenuToggle }: ProjectHeaderPr
       <div className="flex items-center gap-3 min-w-0">
         <button
           onClick={onMobileMenuToggle}
-          className="rounded-lg border border-white/10 p-2 text-white/60 hover:bg-white/5 hover:text-white md:hidden"
+          className="rounded-lg border border-white/10 p-2 text-white/60 hover:bg-white/5 hover:text-white transition-colors duration-150 active:scale-[0.98] md:hidden"
         >
           <Menu className="h-5 w-5" />
         </button>
@@ -50,7 +50,7 @@ export function ProjectHeader({ projectId, onMobileMenuToggle }: ProjectHeaderPr
         <div className="relative">
           <button
             onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-            className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs font-bold text-white hover:border-cyan-400/40 hover:bg-white/[0.08] transition-all"
+            className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs font-bold text-white hover:border-cyan-400/40 hover:bg-white/[0.08] transition-all duration-150 active:scale-[0.98]"
           >
             <Zap className="h-3.5 w-3.5 text-cyan-400" />
             <span className="max-w-[140px] truncate">{project?.name || 'Select Project'}</span>
@@ -67,7 +67,7 @@ export function ProjectHeader({ projectId, onMobileMenuToggle }: ProjectHeaderPr
                   <button
                     key={p.id}
                     onClick={() => handleProjectSwitch(p.id)}
-                    className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-xs font-bold transition-colors ${
+                    className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-xs font-bold transition-colors duration-150 active:scale-[0.98] ${
                       p.id === projectId
                         ? 'bg-cyan-400/10 text-cyan-300 border border-cyan-400/30'
                         : 'text-white/70 hover:bg-white/5 hover:text-white'
@@ -82,7 +82,7 @@ export function ProjectHeader({ projectId, onMobileMenuToggle }: ProjectHeaderPr
                 <Link
                   href="/builder"
                   onClick={() => setIsDropdownOpen(false)}
-                  className="flex w-full items-center justify-center gap-2 rounded-lg bg-cyan-400/10 border border-cyan-400/30 px-3 py-2 text-xs font-black uppercase tracking-widest text-cyan-300 hover:bg-cyan-400/20"
+                  className="flex w-full items-center justify-center gap-2 rounded-lg bg-cyan-400/10 border border-cyan-400/30 px-3 py-2 text-xs font-black uppercase tracking-widest text-cyan-300 hover:bg-cyan-400/20 transition-colors duration-150 active:scale-[0.98]"
                 >
                   <Plus className="h-3.5 w-3.5" /> New Project
                 </Link>
@@ -102,7 +102,7 @@ export function ProjectHeader({ projectId, onMobileMenuToggle }: ProjectHeaderPr
       <div className="flex items-center gap-3">
         <Link
           href={`/projects/${projectId}/builder`}
-          className="hidden sm:inline-flex items-center gap-1.5 rounded-xl bg-cyan-400 px-3.5 py-1.5 text-xs font-black text-[#05070a] hover:bg-cyan-300 transition-all shadow-[0_0_15px_rgba(0,243,255,0.25)]"
+          className="hidden sm:inline-flex items-center gap-1.5 rounded-xl bg-cyan-400 px-3.5 py-1.5 text-xs font-black text-[#05070a] hover:bg-cyan-300 transition-all duration-150 active:scale-[0.98] shadow-[0_0_15px_rgba(0,243,255,0.25)]"
         >
           <Sparkles className="h-3.5 w-3.5" /> Open IDE
         </Link>

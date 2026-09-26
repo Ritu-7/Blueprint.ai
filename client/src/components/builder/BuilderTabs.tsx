@@ -27,7 +27,7 @@ export function BuilderTabs({
           key={tab.id}
           onClick={() => onChange(tab.id)}
           className={cn(
-            'inline-flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-black uppercase tracking-[0.18em] transition',
+            'inline-flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-black uppercase tracking-[0.18em] transition-colors duration-150 active:scale-[0.98]',
             activeTab === tab.id
               ? 'bg-cyan-400 text-[#05070a] shadow-[0_0_18px_rgba(0,243,255,0.22)]'
               : 'text-white/45 hover:bg-white/5 hover:text-white'

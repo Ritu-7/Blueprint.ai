@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { formatDistanceToNow } from 'date-fns';
 import { GlassCard } from '@/components/GlassCard';
+import { motion } from 'framer-motion';
 import { AlertCircle, Loader2, ShieldCheck, User } from 'lucide-react';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -67,7 +68,12 @@ export default function AdminUsersPage() {
   return (
     <div className="space-y-6 p-6 lg:p-8">
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-white/10 pb-6">
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.25, ease: 'easeOut' }}
+        className="flex items-center justify-between border-b border-white/10 pb-6"
+      >
         <div>
           <h1 className="text-2xl font-black text-white">Users</h1>
           <p className="mt-1 text-xs text-white/40">All registered Clerk accounts.</p>
@@ -77,7 +83,7 @@ export default function AdminUsersPage() {
             {total.toLocaleString()} total
           </span>
         )}
-      </div>
+      </motion.div>
 
       {/* Loading */}
       {loading && (
@@ -133,9 +139,12 @@ export default function AdminUsersPage() {
                     </td>
                   </tr>
                 )}
-                {users.map((u) => (
-                  <tr
+                {users.map((u, i) => (
+                  <motion.tr
                     key={u.id}
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.2, delay: i * 0.04 }}
                     className="transition-colors hover:bg-white/[0.025]"
                   >
                     <td className="px-4 py-3 font-semibold text-white">
@@ -150,7 +159,7 @@ export default function AdminUsersPage() {
                     <td className="px-4 py-3 text-white/40">
                       {formatDistanceToNow(new Date(u.createdAt), { addSuffix: true })}
                     </td>
-                  </tr>
+                  </motion.tr>
                 ))}
               </tbody>
             </table>

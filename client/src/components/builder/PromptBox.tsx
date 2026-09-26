@@ -48,13 +48,13 @@ export function PromptBox({
           value={prompt}
           onChange={(event) => setPrompt(event.target.value)}
           placeholder="Describe the website or app you want to build..."
-          className="min-h-36 w-full resize-none rounded-xl border border-white/10 bg-black/30 p-4 text-sm leading-6 text-white outline-none transition placeholder:text-white/25 focus:border-cyan-400/50"
+          className="min-h-36 w-full resize-none rounded-xl border border-white/10 bg-black/30 p-4 text-sm leading-6 text-white outline-none transition-colors duration-150 placeholder:text-white/25 focus:border-cyan-400/50"
         />
         <button
           onClick={() => submit()}
           disabled={!prompt.trim() || isLoading}
           className={cn(
-            'mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-black uppercase tracking-[0.18em] transition',
+            'mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-black uppercase tracking-[0.18em] transition-all duration-150 active:scale-[0.98]',
             prompt.trim() && !isLoading
               ? 'bg-cyan-400 text-[#05070a] hover:scale-[1.01] hover:shadow-[0_0_28px_rgba(0,243,255,0.35)]'
               : 'bg-white/5 text-white/25'
@@ -72,7 +72,7 @@ export function PromptBox({
             <button
               key={example}
               onClick={() => setPrompt(example)}
-              className="w-full rounded-xl border border-white/5 bg-white/[0.025] p-3 text-left text-xs leading-5 text-white/55 transition hover:border-cyan-400/25 hover:text-white"
+              className="w-full rounded-xl border border-white/5 bg-white/[0.025] p-3 text-left text-xs leading-5 text-white/55 transition-all duration-150 active:scale-[0.98] hover:border-cyan-400/25 hover:text-white"
             >
               {example}
             </button>
@@ -90,7 +90,7 @@ export function PromptBox({
             <button
               onClick={() => submit(history[0].prompt)}
               disabled={isLoading}
-              className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-cyan-300"
+              className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-cyan-300 transition-colors duration-150 active:scale-[0.98]"
             >
               <RefreshCw className="h-3 w-3" />
               Regenerate
@@ -105,7 +105,7 @@ export function PromptBox({
               <button
                 key={`${item.prompt}-${item.date}`}
                 onClick={() => submit(item.prompt)}
-                className="w-full rounded-xl border border-white/5 bg-white/[0.025] p-3 text-left transition hover:border-cyan-400/25"
+                className="w-full rounded-xl border border-white/5 bg-white/[0.025] p-3 text-left transition-all duration-150 active:scale-[0.98] hover:border-cyan-400/25"
               >
                 <p className="truncate text-sm text-white/70">{item.prompt}</p>
                 <p className="mt-1 text-[10px] uppercase tracking-widest text-white/25">{item.date}</p>

@@ -61,7 +61,7 @@ export function ProjectSidebar({ projectId, isMobileOpen, onMobileClose }: Proje
           Dashboard
         </Link>
         {onMobileClose && (
-          <button onClick={onMobileClose} className="text-white/40 hover:text-white md:hidden">
+          <button onClick={onMobileClose} className="text-white/40 hover:text-white transition-colors duration-150 md:hidden">
             <X className="h-5 w-5" />
           </button>
         )}

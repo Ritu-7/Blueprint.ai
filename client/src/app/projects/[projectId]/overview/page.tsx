@@ -50,7 +50,7 @@ export default function ProjectOverviewPage() {
           <div className="flex flex-wrap gap-3">
             <Link
               href={`/projects/${project?.id}/builder`}
-              className="inline-flex items-center gap-2 rounded-xl bg-cyan-400 px-5 py-3 text-xs font-black text-[#05070a] hover:bg-cyan-300 transition-all shadow-[0_0_20px_rgba(0,243,255,0.35)]"
+              className="inline-flex items-center gap-2 rounded-xl bg-cyan-400 px-5 py-3 text-xs font-black text-[#05070a] hover:bg-cyan-300 transition-all duration-150 active:scale-[0.98] shadow-[0_0_20px_rgba(0,243,255,0.35)]"
             >
               Launch Builder IDE <ArrowUpRight className="h-4 w-4" />
             </Link>
@@ -66,7 +66,7 @@ export default function ProjectOverviewPage() {
           { label: 'API Contract', value: project?.api_code ? 'Defined' : 'Pending', icon: Terminal, detail: 'REST endpoints' },
           { label: 'Created Date', value: formattedDate, icon: Calendar, detail: 'Auto-saved in cloud' },
         ].map((stat) => (
-          <GlassCard key={stat.label} className="rounded-2xl p-5 border-white/10">
+          <GlassCard key={stat.label} hover={false} className="rounded-2xl p-5 border-white/10">
             <div className="flex items-center justify-between">
               <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/40">{stat.label}</p>
               <stat.icon className="h-4 w-4 text-cyan-400" />
@@ -110,7 +110,7 @@ export default function ProjectOverviewPage() {
               <Link
                 key={shortcut.name}
                 href={shortcut.href}
-                className="flex items-center justify-between rounded-xl border border-white/10 bg-white/[0.02] px-3.5 py-2.5 text-xs font-bold text-white/70 hover:border-cyan-400/40 hover:bg-white/[0.06] hover:text-white transition-all"
+                className="flex items-center justify-between rounded-xl border border-white/10 bg-white/[0.02] px-3.5 py-2.5 text-xs font-bold text-white/70 hover:border-cyan-400/40 hover:bg-white/[0.06] hover:text-white transition-all duration-150 active:scale-[0.98]"
               >
                 <span>{shortcut.name}</span>
                 <ArrowUpRight className="h-3.5 w-3.5 text-cyan-400" />

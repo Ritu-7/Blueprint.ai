@@ -60,7 +60,7 @@ function TreeItem({
       <div>
         <button
           onClick={() => setOpen((value) => !value)}
-          className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs font-bold text-white/55 hover:bg-white/5 hover:text-white"
+          className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs font-bold text-white/55 hover:bg-white/5 hover:text-white transition-colors duration-150"
         >
           {open ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
           <Folder className="h-4 w-4 text-cyan-300/80" />
@@ -81,7 +81,7 @@ function TreeItem({
     <button
       onClick={() => onSelect(node.file!)}
       className={cn(
-        'flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs transition',
+        'flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs transition-colors duration-150',
         activePath === node.file!.path ? 'bg-cyan-400/10 text-cyan-100' : 'text-white/45 hover:bg-white/5 hover:text-white'
       )}
     >

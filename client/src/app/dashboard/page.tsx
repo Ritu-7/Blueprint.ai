@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useUser, useSession } from '@clerk/nextjs';
 import { formatDistanceToNow } from 'date-fns';
 import { Activity, ArrowUpRight, CheckCircle2, FolderKanban, Sparkles, Plus, Layers, Terminal } from 'lucide-react';
+import { motion } from 'framer-motion';
 import { WorkspacePage } from '@/components/app/WorkspacePage';
 import { ProjectCard } from '@/components/ProjectCard';
 import { fetchUserProjects } from '@/lib/database.client';
@@ -104,12 +105,18 @@ export default function DashboardPage() {
       actions={[{ label: 'Open Builder', href: '/builder' }]}
     >
       <div className="grid gap-4 md:grid-cols-3">
-        {metrics.map((metric) => (
-          <section key={metric.label} className="rounded-2xl border border-white/10 bg-white/[0.04] p-5 backdrop-blur-md">
+        {metrics.map((metric, i) => (
+          <motion.section
+            key={metric.label}
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.25, delay: 0.05 + i * 0.06 }}
+            className="rounded-2xl border border-white/10 bg-white/[0.04] p-5 backdrop-blur-md"
+          >
             <p className="text-xs font-bold uppercase tracking-[0.2em] text-white/40">{metric.label}</p>
             <p className="mt-5 text-4xl font-black text-white">{metric.value}</p>
             <p className="mt-2 text-sm text-cyan-200/70">{metric.detail}</p>
-          </section>
+          </motion.section>
         ))}
       </div>
 
@@ -125,7 +132,7 @@ export default function DashboardPage() {
           </div>
           <Link
             href="/builder"
-            className="inline-flex items-center gap-2 rounded-xl bg-cyan-400/10 border border-cyan-400/30 px-4 py-2 text-xs font-black uppercase tracking-widest text-cyan-300 hover:bg-cyan-400/20 transition-colors"
+            className="inline-flex items-center gap-2 rounded-xl bg-cyan-400/10 border border-cyan-400/30 px-4 py-2 text-xs font-black uppercase tracking-widest text-cyan-300 hover:bg-cyan-400/20 transition-all duration-150 active:scale-[0.98]"
           >
             <Plus className="h-4 w-4" /> New Blueprint
           </Link>
@@ -133,16 +140,22 @@ export default function DashboardPage() {
 
         {projects.length > 0 ? (
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {projects.map((proj) => (
-              <ProjectCard
+            {projects.map((proj, i) => (
+              <motion.div
                 key={proj.id}
-                project={{
-                  id: proj.id,
-                  name: proj.name,
-                  description: 'AI-generated application blueprint',
-                  created_at: proj.created_at,
-                }}
-              />
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.25, delay: 0.15 + i * 0.06 }}
+              >
+                <ProjectCard
+                  project={{
+                    id: proj.id,
+                    name: proj.name,
+                    description: 'AI-generated application blueprint',
+                    created_at: proj.created_at,
+                  }}
+                />
+              </motion.div>
             ))}
           </div>
         ) : (
@@ -154,7 +167,7 @@ export default function DashboardPage() {
             </p>
             <Link
               href="/builder"
-              className="mt-5 inline-flex items-center gap-2 rounded-xl bg-cyan-400 px-5 py-2.5 text-xs font-black text-[#05070a] hover:bg-cyan-300 transition-all"
+              className="mt-5 inline-flex items-center gap-2 rounded-xl bg-cyan-400 px-5 py-2.5 text-xs font-black text-[#05070a] hover:bg-cyan-300 transition-all duration-150 active:scale-[0.98]"
             >
               Start Building Now <ArrowUpRight className="h-4 w-4" />
             </Link>
@@ -173,22 +186,28 @@ export default function DashboardPage() {
           </div>
           <div className="mt-8 space-y-4">
             {recentProjects.length > 0 ? (
-              recentProjects.map((proj) => (
-                <Link
+              recentProjects.map((proj, i) => (
+                <motion.div
                   key={proj.id}
-                  href={`/projects/${proj.id}/overview`}
-                  className="flex items-center justify-between gap-3 border-t border-white/10 pt-4 text-sm text-white/65 hover:text-white transition-colors group"
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.2, delay: 0.25 + i * 0.06 }}
                 >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <CheckCircle2 className="h-4 w-4 text-cyan-300 shrink-0" />
-                    <span className="truncate font-medium text-white/80 group-hover:text-cyan-200 transition-colors">
-                      {proj.name} updated
+                  <Link
+                    href={`/projects/${proj.id}/overview`}
+                    className="flex items-center justify-between gap-3 border-t border-white/10 pt-4 text-sm text-white/65 hover:text-white transition-colors duration-150 group"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <CheckCircle2 className="h-4 w-4 text-cyan-300 shrink-0" />
+                      <span className="truncate font-medium text-white/80 group-hover:text-cyan-200 transition-colors duration-150">
+                        {proj.name} updated
+                      </span>
+                    </div>
+                    <span className="text-xs text-white/40 shrink-0">
+                      {formatRelativeTime(proj.updated_at || proj.created_at)}
                     </span>
-                  </div>
-                  <span className="text-xs text-white/40 shrink-0">
-                    {formatRelativeTime(proj.updated_at || proj.created_at)}
-                  </span>
-                </Link>
+                  </Link>
+                </motion.div>
               ))
             ) : (
               <div className="border-t border-white/10 pt-4 text-sm text-white/40 flex items-center gap-3">
@@ -205,7 +224,7 @@ export default function DashboardPage() {
           <p className="mt-3 text-sm leading-6 text-white/55">
             Turn an idea into a working project with files, API docs, schema, and a live preview.
           </p>
-          <Link href="/builder" className="mt-6 inline-flex items-center gap-2 text-sm font-black text-cyan-200 hover:text-white transition-colors">
+          <Link href="/builder" className="mt-6 inline-flex items-center gap-2 text-sm font-black text-cyan-200 hover:text-white transition-colors duration-150 active:scale-[0.98]">
             Launch Builder <ArrowUpRight className="h-4 w-4" />
           </Link>
         </section>

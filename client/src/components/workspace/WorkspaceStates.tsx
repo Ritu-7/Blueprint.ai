@@ -34,7 +34,7 @@ export function WorkspaceErrorState({
         {onRetry && (
           <button
             onClick={onRetry}
-            className="mt-6 inline-flex items-center gap-2 rounded-xl bg-rose-500 px-4 py-2 text-xs font-black text-white hover:bg-rose-400 transition-colors"
+            className="mt-6 inline-flex items-center gap-2 rounded-xl bg-rose-500 px-4 py-2 text-xs font-black text-white hover:bg-rose-400 transition-colors duration-150 active:scale-[0.98]"
           >
             Retry Loading
           </button>
@@ -68,7 +68,7 @@ export function WorkspaceEmptyState({
         {actionLabel && actionHref && (
           <Link
             href={actionHref}
-            className="mt-6 inline-flex items-center gap-2 rounded-xl bg-cyan-400 px-5 py-2.5 text-xs font-black text-[#05070a] hover:bg-cyan-300 transition-all shadow-[0_0_15px_rgba(0,243,255,0.3)]"
+            className="mt-6 inline-flex items-center gap-2 rounded-xl bg-cyan-400 px-5 py-2.5 text-xs font-black text-[#05070a] hover:bg-cyan-300 transition-all duration-150 active:scale-[0.98] shadow-[0_0_15px_rgba(0,243,255,0.3)]"
           >
             {actionLabel} <ArrowUpRight className="h-4 w-4" />
           </Link>
