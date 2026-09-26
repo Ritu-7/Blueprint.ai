@@ -1,8 +1,5 @@
-'use client';
-
 import Link from 'next/link';
 import { ArrowRight, BarChart3, BookOpen, Boxes, CircleHelp, FileCode2, LockKeyhole, Settings2, ShieldCheck } from 'lucide-react';
-import { motion } from 'framer-motion';
 
 type WorkspacePageProps = {
   eyebrow: string;
@@ -17,12 +14,7 @@ export function WorkspacePage({ eyebrow, title, description, icon: Icon, actions
   return (
     <div className="min-h-[calc(100vh-64px)] bg-[#05070a] text-white">
       <div className="mx-auto max-w-7xl px-6 py-12 lg:px-8">
-        <motion.header
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.25, ease: 'easeOut' }}
-          className="flex flex-col gap-8 border-b border-white/10 pb-10 lg:flex-row lg:items-end lg:justify-between"
-        >
+        <header className="flex flex-col gap-8 border-b border-white/10 pb-10 lg:flex-row lg:items-end lg:justify-between">
           <div className="max-w-3xl">
             <div className="mb-5 inline-flex items-center gap-2 text-xs font-black uppercase tracking-[0.28em] text-cyan-300">
               <Icon className="h-4 w-4" />
@@ -41,7 +33,7 @@ export function WorkspacePage({ eyebrow, title, description, icon: Icon, actions
               ))}
             </div>
           )}
-        </motion.header>
+        </header>
         <main className="py-10">{children}</main>
       </div>
     </div>
