@@ -4,7 +4,7 @@ import { useState, useMemo } from 'react';
 import { CheckCircle2, Circle, Clock, Plus, Search, Trash2, Tag, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 
-interface TaskItem {
+export interface TaskItem {
   id: string;
   title: string;
   priority: 'high' | 'medium' | 'low';
@@ -13,12 +13,7 @@ interface TaskItem {
 }
 
 export function TodoTemplate({ title }: { title: string }) {
-  const [tasks, setTasks] = useState<TaskItem[]>([
-    { id: 't1', title: 'Design launch checklist & onboarding flow', priority: 'high', dueDate: 'Today', done: false },
-    { id: 't2', title: 'Connect Supabase RLS security policies', priority: 'high', dueDate: 'Today', done: false },
-    { id: 't3', title: 'Verify responsive viewport breakpoints', priority: 'medium', dueDate: 'Tomorrow', done: true },
-    { id: 't4', title: 'Setup automated CI/CD deployment pipeline', priority: 'low', dueDate: 'This week', done: false },
-  ]);
+  const [tasks, setTasks] = useState<TaskItem[]>([]);
 
   const [newTaskTitle, setNewTaskTitle] = useState('');
   const [newPriority, setNewPriority] = useState<'high' | 'medium' | 'low'>('medium');
@@ -191,9 +186,15 @@ export function TodoTemplate({ title }: { title: string }) {
           </div>
 
           {filteredTasks.length === 0 ? (
-            <div className="py-12 text-center text-white/30 text-xs">
-              <AlertCircle className="h-8 w-8 mx-auto mb-2 opacity-40 text-cyan-400" />
-              No matching tasks found. Try changing filters or adding a new task.
+            <div className="py-12 text-center text-white/30 text-xs space-y-3">
+              <AlertCircle className="h-8 w-8 mx-auto opacity-40 text-cyan-400" />
+              <p>No tasks found in backlog. Click &quot;New Task&quot; above to create your first task.</p>
+              <button
+                onClick={() => setIsAdding(true)}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-cyan-400/30 bg-cyan-400/10 px-3 py-1.5 text-xs font-bold text-cyan-300 hover:bg-cyan-400/20"
+              >
+                <Plus className="h-3.5 w-3.5" /> Create Task
+              </button>
             </div>
           ) : (
             filteredTasks.map((t) => (
@@ -257,4 +258,3 @@ export function TodoTemplate({ title }: { title: string }) {
     </main>
   );
 }
-

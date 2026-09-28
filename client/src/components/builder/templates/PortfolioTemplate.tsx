@@ -8,12 +8,12 @@ import {
   Mail,
   Heart,
   Eye,
-  CheckCircle2,
   X,
   Send,
   Code2,
   Palette,
   Globe,
+  Plus,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -28,55 +28,21 @@ export interface PortfolioProject {
   featured: boolean;
 }
 
-const initialProjects: PortfolioProject[] = [
-  {
-    id: 'p1',
-    title: 'Blueprint AI Generator',
-    category: 'AI Products',
-    description: 'Autonomous full-stack application architect capable of outputting production Next.js apps.',
-    tags: ['React', 'Next.js', 'Tailwind', 'AI API'],
-    likes: 142,
-    views: 3200,
-    featured: true,
-  },
-  {
-    id: 'p2',
-    title: 'Aetheria Design System',
-    category: 'Brand Systems',
-    description: 'Dark-mode glassmorphic component library built for high-scale enterprise dashboards.',
-    tags: ['Figma', 'Design Tokens', 'Tailwind CSS'],
-    likes: 98,
-    views: 1850,
-    featured: true,
-  },
-  {
-    id: 'p3',
-    title: 'Chronos Realtime Analytics',
-    category: 'Web Apps',
-    description: 'Ultra-low latency telemetry dashboard monitoring millions of WebSocket events per second.',
-    tags: ['TypeScript', 'WebSockets', 'Recharts'],
-    likes: 210,
-    views: 4500,
-    featured: true,
-  },
-  {
-    id: 'p4',
-    title: 'Vogue Tech Editorial Platform',
-    category: 'Editorial',
-    description: 'Rich digital publication system with headless CMS integration and fast hydration.',
-    tags: ['Next.js App Router', 'Sanity.io', 'GraphQL'],
-    likes: 76,
-    views: 1420,
-    featured: false,
-  },
-];
-
 export function PortfolioTemplate({ title }: { title: string }) {
-  const [projects, setProjects] = useState<PortfolioProject[]>(initialProjects);
+  const [projects, setProjects] = useState<PortfolioProject[]>([]);
   const [activeCategory, setActiveCategory] = useState<string>('All');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedProject, setSelectedProject] = useState<PortfolioProject | null>(null);
   const [isInquiryOpen, setIsInquiryOpen] = useState(false);
+  const [isAddProjectOpen, setIsAddProjectOpen] = useState(false);
+
+  // New project form inputs
+  const [newTitle, setNewTitle] = useState('');
+  const [newCategory, setNewCategory] = useState<'AI Products' | 'Brand Systems' | 'Web Apps' | 'Editorial'>('AI Products');
+  const [newDescription, setNewDescription] = useState('');
+  const [newTagsStr, setNewTagsStr] = useState('React, Next.js, Tailwind');
+
+  // Contact form inputs
   const [contactName, setContactName] = useState('');
   const [contactEmail, setContactEmail] = useState('');
   const [contactMessage, setContactMessage] = useState('');
@@ -98,6 +64,33 @@ export function PortfolioTemplate({ title }: { title: string }) {
       prev.map((p) => (p.id === id ? { ...p, likes: p.likes + 1 } : p))
     );
     toast.success('Appreciated project!');
+  };
+
+  const handleCreateProject = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newTitle.trim() || !newDescription.trim()) return;
+
+    const tagsArray = newTagsStr
+      .split(',')
+      .map((t) => t.trim())
+      .filter(Boolean);
+
+    const newProj: PortfolioProject = {
+      id: `proj-${Date.now()}`,
+      title: newTitle.trim(),
+      category: newCategory,
+      description: newDescription.trim(),
+      tags: tagsArray.length > 0 ? tagsArray : ['React', 'TypeScript'],
+      likes: 1,
+      views: 10,
+      featured: true,
+    };
+
+    setProjects((prev) => [newProj, ...prev]);
+    setNewTitle('');
+    setNewDescription('');
+    setIsAddProjectOpen(false);
+    toast.success('Added new portfolio showcase project');
   };
 
   const handleSendInquiry = (e: React.FormEvent) => {
@@ -134,14 +127,64 @@ export function PortfolioTemplate({ title }: { title: string }) {
                 <Mail className="h-4 w-4" />
                 Get In Touch
               </button>
-              <a
-                href="#projects-grid"
+              <button
+                onClick={() => setIsAddProjectOpen((v) => !v)}
                 className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-5 py-3 text-xs font-bold text-white hover:bg-white/[0.08] transition-all"
               >
-                View Works
-              </a>
+                <Plus className="h-4 w-4 text-cyan-300" />
+                Add Showcase Work
+              </button>
             </div>
           </div>
+
+          {/* Add Project Form */}
+          {isAddProjectOpen && (
+            <form onSubmit={handleCreateProject} className="mt-6 border-t border-white/10 pt-5 space-y-4">
+              <div className="grid gap-3 sm:grid-cols-3">
+                <input
+                  type="text"
+                  placeholder="Project title (e.g. Acme App)"
+                  value={newTitle}
+                  onChange={(e) => setNewTitle(e.target.value)}
+                  required
+                  className="rounded-xl border border-white/10 bg-black/40 px-3.5 py-2 text-xs text-white placeholder-white/30 focus:border-cyan-400 focus:outline-none"
+                />
+                <select
+                  value={newCategory}
+                  onChange={(e) => setNewCategory(e.target.value as any)}
+                  className="rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-xs text-white focus:border-cyan-400 focus:outline-none"
+                >
+                  <option value="AI Products" className="bg-[#0f131c]">AI Products</option>
+                  <option value="Brand Systems" className="bg-[#0f131c]">Brand Systems</option>
+                  <option value="Web Apps" className="bg-[#0f131c]">Web Apps</option>
+                  <option value="Editorial" className="bg-[#0f131c]">Editorial</option>
+                </select>
+                <input
+                  type="text"
+                  placeholder="Tags (comma separated: React, Next.js)"
+                  value={newTagsStr}
+                  onChange={(e) => setNewTagsStr(e.target.value)}
+                  className="rounded-xl border border-white/10 bg-black/40 px-3.5 py-2 text-xs text-white placeholder-white/30 focus:border-cyan-400 focus:outline-none"
+                />
+              </div>
+              <textarea
+                rows={2}
+                placeholder="Project description and key technical features..."
+                value={newDescription}
+                onChange={(e) => setNewDescription(e.target.value)}
+                required
+                className="w-full rounded-xl border border-white/10 bg-black/40 px-3.5 py-2 text-xs text-white placeholder-white/30 focus:border-cyan-400 focus:outline-none"
+              />
+              <div className="flex justify-end">
+                <button
+                  type="submit"
+                  className="rounded-xl bg-cyan-400 px-5 py-2 text-xs font-black text-[#05070a] hover:bg-cyan-300 transition-all"
+                >
+                  Save Showcase Project
+                </button>
+              </div>
+            </form>
+          )}
         </header>
 
         {/* Filter and Search Bar */}
@@ -177,8 +220,9 @@ export function PortfolioTemplate({ title }: { title: string }) {
         {/* Projects Grid */}
         <div className="grid gap-4 md:grid-cols-3">
           {filteredProjects.length === 0 ? (
-            <div className="col-span-3 py-16 text-center text-xs text-white/30">
-              No projects found matching the specified filters.
+            <div className="col-span-3 py-16 text-center text-xs text-white/30 space-y-3">
+              <Sparkles className="h-8 w-8 mx-auto opacity-30 text-cyan-400" />
+              <p>No projects in portfolio gallery. Click &quot;Add Showcase Work&quot; to display your projects.</p>
             </div>
           ) : (
             filteredProjects.map((project) => (

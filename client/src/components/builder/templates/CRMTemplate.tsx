@@ -12,6 +12,7 @@ import {
   Trash2,
   CheckCircle,
   Briefcase,
+  AlertCircle,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -26,18 +27,10 @@ export interface Deal {
   probability: number;
 }
 
-const initialDeals: Deal[] = [
-  { id: 'd1', company: 'Acme Studio', contact: 'Sarah Jenkins', value: 24000, stage: 'Qualified', probability: 30 },
-  { id: 'd2', company: 'NEXUS Robotics', contact: 'Liam Vance', value: 85000, stage: 'Proposal', probability: 60 },
-  { id: 'd3', company: 'Hyperion Cloud', contact: 'Elena Rostova', value: 120000, stage: 'Negotiation', probability: 80 },
-  { id: 'd4', company: 'Starlight Tech', contact: 'Marcus Brody', value: 45000, stage: 'Closed Won', probability: 100 },
-  { id: 'd5', company: 'Vanguard Systems', contact: 'Kira Nerys', value: 62000, stage: 'Proposal', probability: 60 },
-];
-
 const stagesList: StageName[] = ['Qualified', 'Proposal', 'Negotiation', 'Closed Won'];
 
 export function CRMTemplate({ title }: { title: string }) {
-  const [deals, setDeals] = useState<Deal[]>(initialDeals);
+  const [deals, setDeals] = useState<Deal[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [isAddingDeal, setIsAddingDeal] = useState(false);
   const [newCompany, setNewCompany] = useState('');
@@ -128,7 +121,7 @@ export function CRMTemplate({ title }: { title: string }) {
               </div>
               <h1 className="text-3xl font-black tracking-tight md:text-4xl text-white">{title}</h1>
               <p className="mt-2 max-w-xl text-sm leading-6 text-white/55">
-                Interactive sales pipeline with drag-like stage progression, weighted revenue forecasts, and account tracking.
+                Interactive sales pipeline with stage progression, weighted revenue forecasts, and account tracking.
               </p>
             </div>
 
@@ -244,7 +237,7 @@ export function CRMTemplate({ title }: { title: string }) {
               className="w-full rounded-xl border border-white/10 bg-black/40 pl-10 pr-4 py-2 text-xs text-white placeholder-white/30 focus:border-cyan-400 focus:outline-none"
             />
           </div>
-          <span className="text-xs text-white/40 font-mono hidden md:inline">Click arrow icon to advance deal stage</span>
+          <span className="text-xs text-white/40 font-mono hidden md:inline">Click advance button to move deal stage</span>
         </div>
 
         {/* Kanban Stage Pipeline Board */}
@@ -254,7 +247,7 @@ export function CRMTemplate({ title }: { title: string }) {
             const stageTotal = stageDeals.reduce((sum, d) => sum + d.value, 0);
 
             return (
-              <div key={stage} className="flex flex-col rounded-2xl border border-white/10 bg-white/[0.03] p-4 min-h-[420px]">
+              <div key={stage} className="flex flex-col rounded-2xl border border-white/10 bg-white/[0.03] p-4 min-h-[360px]">
                 <div className="flex items-center justify-between border-b border-white/10 pb-3 mb-4">
                   <div>
                     <h2 className="text-xs font-black uppercase tracking-[0.2em] text-cyan-300">{stage}</h2>
@@ -267,8 +260,9 @@ export function CRMTemplate({ title }: { title: string }) {
 
                 <div className="space-y-3 flex-1">
                   {stageDeals.length === 0 ? (
-                    <div className="py-10 text-center text-xs text-white/20 border border-dashed border-white/5 rounded-xl">
-                      No deals in {stage}
+                    <div className="py-12 text-center text-xs text-white/20 border border-dashed border-white/5 rounded-xl flex flex-col items-center justify-center gap-2">
+                      <AlertCircle className="h-5 w-5 text-white/20" />
+                      <span>No deals in {stage}</span>
                     </div>
                   ) : (
                     stageDeals.map((deal) => (

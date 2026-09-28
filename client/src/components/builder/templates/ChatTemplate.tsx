@@ -1,167 +1,164 @@
 'use client';
 
 import { useState } from 'react';
-import { Bot, Send, User, Hash, Sparkles } from 'lucide-react';
+import { Send, Hash, Users, MessageSquare, Bot, User, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 
-interface Message {
+export interface ChatMessage {
   id: string;
-  sender: 'user' | 'bot' | 'team';
-  senderName: string;
-  text: string;
-  time: string;
+  sender: string;
+  avatar?: string;
+  content: string;
+  timestamp: string;
+  isBot?: boolean;
 }
 
 export function ChatTemplate({ title }: { title: string }) {
-  const [activeChannel, setActiveChannel] = useState('launch-team');
-  const [inputMessage, setInputMessage] = useState('');
+  const [activeChannel, setActiveChannel] = useState('general');
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [inputText, setInputText] = useState('');
 
-  const [channelMessages, setChannelMessages] = useState<Record<string, Message[]>>({
-    'launch-team': [
-      { id: 'm1', sender: 'team', senderName: 'Alex (Lead Developer)', text: 'Can someone inspect the latest preview deployment build?', time: '10:40 AM' },
-      { id: 'm2', sender: 'bot', senderName: 'Blueprint AI Assistant', text: 'All 15 static routes compiled cleanly. Supabase database schema synced with RLS enabled.', time: '10:41 AM' },
-    ],
-    'support-queue': [
-      { id: 'm3', sender: 'team', senderName: 'Support Agent', text: 'Ticket #402: User requesting API terminal contract export.', time: '09:15 AM' },
-    ],
-    'design-partners': [
-      { id: 'm4', sender: 'team', senderName: 'UI Architect', text: 'Reviewing cyan-400 theme accents across viewport breakpoints.', time: 'Yesterday' },
-    ],
-  });
+  const handleSendMessage = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!inputText.trim()) return;
 
-  const currentMessages = channelMessages[activeChannel] || [];
-
-  const sendMessage = (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    if (!inputMessage.trim()) return;
-
-    const userMsg: Message = {
-      id: `m-${Date.now()}`,
-      sender: 'user',
-      senderName: 'You',
-      text: inputMessage.trim(),
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    const userMsg: ChatMessage = {
+      id: `msg-${Date.now()}`,
+      sender: 'You',
+      content: inputText.trim(),
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     };
 
-    setChannelMessages((prev) => ({
-      ...prev,
-      [activeChannel]: [...(prev[activeChannel] || []), userMsg],
-    }));
+    setMessages((prev) => [...prev, userMsg]);
+    const userText = inputText.trim();
+    setInputText('');
 
-    const userText = inputMessage.trim();
-    setInputMessage('');
-
-    // Simulate AI response
+    // Optional AI bot auto response
     setTimeout(() => {
-      const botMsg: Message = {
-        id: `bot-${Date.now()}`,
-        sender: 'bot',
-        senderName: 'Blueprint AI Assistant',
-        text: `Received: "${userText.slice(0, 60)}${userText.length > 60 ? '…' : ''}". AI Engineer context updated.`,
-        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      };
-      setChannelMessages((prev) => ({
+      setMessages((prev) => [
         ...prev,
-        [activeChannel]: [...(prev[activeChannel] || []), botMsg],
-      }));
+        {
+          id: `bot-${Date.now()}`,
+          sender: 'Blueprint AI Assistant',
+          content: `Received message: "${userText}". How can I assist with this channel task?`,
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          isBot: true,
+        },
+      ]);
     }, 1000);
   };
 
+  const handleClearMessages = () => {
+    setMessages([]);
+    toast.info('Cleared channel history');
+  };
+
   return (
-    <main className="min-h-full bg-[#05070a] p-6 text-white font-sans">
-      <section className="mx-auto grid max-w-6xl gap-6 lg:grid-cols-[280px_1fr]">
-        {/* Sidebar Channel List */}
-        <aside className="rounded-2xl border border-white/10 bg-white/[0.035] p-5">
-          <div className="flex items-center gap-2 mb-4">
-            <Sparkles className="h-4 w-4 text-cyan-300" />
-            <p className="text-xs font-black uppercase tracking-[0.24em] text-cyan-300">Channels</p>
+    <main className="flex h-full min-h-[550px] bg-[#05070a] text-white font-sans overflow-hidden">
+      {/* Sidebar Channels */}
+      <aside className="w-64 border-r border-white/10 bg-white/[0.02] p-4 flex flex-col justify-between shrink-0">
+        <div>
+          <div className="flex items-center gap-2 border-b border-white/10 pb-4 mb-4">
+            <MessageSquare className="h-5 w-5 text-cyan-300" />
+            <span className="font-black text-sm tracking-tight truncate">{title}</span>
           </div>
+
+          <p className="text-[10px] font-bold uppercase tracking-widest text-white/30 mb-2 px-2">Channels</p>
           <div className="space-y-1">
-            {[
-              { id: 'launch-team', name: 'launch-team' },
-              { id: 'support-queue', name: 'support-queue' },
-              { id: 'design-partners', name: 'design-partners' },
-            ].map((c) => (
+            {['general', 'announcements', 'dev-team', 'support'].map((ch) => (
               <button
-                key={c.id}
-                onClick={() => setActiveChannel(c.id)}
-                className={`w-full flex items-center gap-2.5 rounded-xl px-3.5 py-2.5 text-xs font-bold transition-all ${
-                  activeChannel === c.id
-                    ? 'bg-cyan-400 text-[#05070a] shadow-[0_0_15px_rgba(0,243,255,0.3)]'
-                    : 'text-white/60 hover:bg-white/[0.04] hover:text-white'
+                key={ch}
+                onClick={() => setActiveChannel(ch)}
+                className={`w-full flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-bold transition-colors ${
+                  activeChannel === ch
+                    ? 'bg-cyan-400/10 text-cyan-300 border border-cyan-400/20'
+                    : 'text-white/50 hover:bg-white/[0.04] hover:text-white'
                 }`}
               >
-                <Hash className="h-3.5 w-3.5" />
-                <span>{c.name}</span>
+                <Hash className="h-3.5 w-3.5 text-cyan-400" />
+                {ch}
               </button>
             ))}
           </div>
-        </aside>
+        </div>
 
-        {/* Main Conversation Window */}
-        <section className="flex flex-col justify-between rounded-2xl border border-white/10 bg-white/[0.035] p-6 min-h-[500px]">
-          <div>
-            <div className="flex items-center justify-between border-b border-white/10 pb-4">
-              <div>
-                <h1 className="text-2xl font-black tracking-tight text-white flex items-center gap-2">
-                  <Hash className="h-5 w-5 text-cyan-400" />
-                  {activeChannel}
-                </h1>
-                <p className="mt-1 text-xs text-white/40">{title} — real-time AI conversation workspace</p>
-              </div>
-            </div>
+        <div className="border-t border-white/10 pt-3 flex items-center justify-between text-xs text-white/40">
+          <span className="flex items-center gap-1.5">
+            <Users className="h-3.5 w-3.5 text-cyan-400" /> Live Workspace
+          </span>
+        </div>
+      </aside>
 
-            <div className="mt-6 space-y-4 max-h-[380px] overflow-y-auto pr-2 custom-scrollbar">
-              {currentMessages.map((msg) => (
-                <div
-                  key={msg.id}
-                  className={`flex gap-3 text-xs ${
-                    msg.sender === 'user' ? 'justify-end' : 'justify-start'
-                  }`}
-                >
-                  <div
-                    className={`max-w-xl rounded-2xl p-4 space-y-1 ${
-                      msg.sender === 'user'
-                        ? 'bg-cyan-400 text-[#05070a] font-medium'
-                        : msg.sender === 'bot'
-                        ? 'bg-cyan-950/60 border border-cyan-500/30 text-cyan-100'
-                        : 'bg-white/[0.05] border border-white/10 text-white/80'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between gap-4 text-[10px] opacity-70 mb-1 font-bold">
-                      <span className="flex items-center gap-1">
-                        {msg.sender === 'bot' ? <Bot className="h-3 w-3 text-cyan-400" /> : <User className="h-3 w-3" />}
-                        {msg.senderName}
-                      </span>
-                      <span>{msg.time}</span>
-                    </div>
-                    <p className="leading-relaxed">{msg.text}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
+      {/* Main Chat Area */}
+      <section className="flex-1 flex flex-col justify-between bg-[#05070a]">
+        {/* Channel Header */}
+        <header className="flex items-center justify-between border-b border-white/10 bg-white/[0.02] px-6 py-4">
+          <div className="flex items-center gap-2">
+            <Hash className="h-5 w-5 text-cyan-300" />
+            <h2 className="font-black text-base text-white">{activeChannel}</h2>
           </div>
+          {messages.length > 0 && (
+            <button
+              onClick={handleClearMessages}
+              className="p-1.5 rounded-lg text-white/30 hover:text-rose-400 hover:bg-white/5 transition-colors"
+              title="Clear channel chat"
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
+          )}
+        </header>
 
-          {/* Message Input Line */}
-          <form onSubmit={sendMessage} className="mt-6 flex items-center gap-3 rounded-xl border border-white/10 bg-black/40 p-2.5 focus-within:border-cyan-400/50 transition-colors">
+        {/* Message Stream */}
+        <div className="flex-1 p-6 overflow-y-auto space-y-4">
+          {messages.length === 0 ? (
+            <div className="py-20 text-center text-xs text-white/30 space-y-2">
+              <MessageSquare className="h-8 w-8 mx-auto opacity-30 text-cyan-400" />
+              <p>No messages in #{activeChannel} yet.</p>
+              <p className="text-[11px] text-white/20">Send a message below to start conversation.</p>
+            </div>
+          ) : (
+            messages.map((msg) => (
+              <div
+                key={msg.id}
+                className={`flex gap-3 text-xs ${
+                  msg.isBot ? 'bg-cyan-400/5 border border-cyan-400/20 rounded-2xl p-4' : ''
+                }`}
+              >
+                <div className="h-8 w-8 rounded-full bg-cyan-400/20 border border-cyan-400/30 flex items-center justify-center shrink-0">
+                  {msg.isBot ? <Bot className="h-4 w-4 text-cyan-300" /> : <User className="h-4 w-4 text-white" />}
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-white">{msg.sender}</span>
+                    <span className="text-[10px] text-white/30">{msg.timestamp}</span>
+                  </div>
+                  <p className="mt-1 text-white/80 leading-relaxed">{msg.content}</p>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
+        {/* Input Bar */}
+        <form onSubmit={handleSendMessage} className="p-4 border-t border-white/10 bg-white/[0.02]">
+          <div className="flex gap-2">
             <input
               type="text"
               placeholder={`Message #${activeChannel}…`}
-              value={inputMessage}
-              onChange={(e) => setInputMessage(e.target.value)}
-              className="flex-1 bg-transparent px-3 text-xs text-white placeholder-white/30 outline-none"
+              value={inputText}
+              onChange={(e) => setInputText(e.target.value)}
+              className="flex-1 rounded-xl border border-white/10 bg-black/40 px-4 py-2.5 text-xs text-white placeholder-white/30 focus:border-cyan-400 focus:outline-none"
             />
             <button
               type="submit"
-              disabled={!inputMessage.trim()}
-              className="flex h-9 w-9 items-center justify-center rounded-lg bg-cyan-400 text-[#05070a] disabled:opacity-30 hover:bg-cyan-300 transition-colors shrink-0"
+              disabled={!inputText.trim()}
+              className="rounded-xl bg-cyan-400 px-4 py-2.5 text-xs font-black text-[#05070a] hover:bg-cyan-300 disabled:opacity-30 transition-all shadow-[0_0_15px_rgba(0,243,255,0.3)]"
             >
               <Send className="h-4 w-4" />
             </button>
-          </form>
-        </section>
+          </div>
+        </form>
       </section>
     </main>
   );
 }
-

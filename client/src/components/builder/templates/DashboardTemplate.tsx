@@ -8,7 +8,6 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   Download,
-  Calendar,
   Search,
   CheckCircle2,
   Clock,
@@ -28,7 +27,7 @@ interface MetricItem {
   sparkline: number[];
 }
 
-interface ActivityLog {
+export interface ActivityLog {
   id: string;
   user: string;
   action: string;
@@ -38,36 +37,28 @@ interface ActivityLog {
 }
 
 const timeRangeData: Record<TimeRange, { volume: number[]; revenue: string; users: string; uptime: string }> = {
-  '7D': { volume: [42, 64, 52, 80, 72, 96, 88], revenue: '$24.5K', users: '4.2K', uptime: '99.99%' },
-  '30D': { volume: [35, 48, 62, 75, 84, 91, 105, 98, 112, 120, 115, 134], revenue: '$98.4K', users: '18.4K', uptime: '99.98%' },
-  '90D': { volume: [20, 35, 50, 65, 80, 95, 110, 130, 145, 160, 175, 190], revenue: '$284.1K', users: '52.1K', uptime: '99.95%' },
-  '1Y': { volume: [15, 30, 45, 70, 90, 120, 150, 180, 220, 260, 310, 380], revenue: '$1.12M', users: '194K', uptime: '99.92%' },
+  '7D': { volume: [0, 0, 0, 0, 0, 0, 0], revenue: '$0.00', users: '0', uptime: '100%' },
+  '30D': { volume: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], revenue: '$0.00', users: '0', uptime: '100%' },
+  '90D': { volume: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], revenue: '$0.00', users: '0', uptime: '100%' },
+  '1Y': { volume: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], revenue: '$0.00', users: '0', uptime: '100%' },
 };
-
-const initialLogs: ActivityLog[] = [
-  { id: '1', user: 'Sophia Chen', action: 'Enterprise Subscription Upgrade', amount: '+$2,400', time: '5 mins ago', status: 'completed' },
-  { id: '2', user: 'Alex Rivera', action: 'API Credit Pack Purchase', amount: '+$450', time: '18 mins ago', status: 'completed' },
-  { id: '3', user: 'Marcus Vance', action: 'Team License Renewal', amount: '+$1,200', time: '1 hour ago', status: 'pending' },
-  { id: '4', user: 'Elena Rostova', action: 'Failed Invoice Payment', amount: '$0', time: '2 hours ago', status: 'failed' },
-  { id: '5', user: 'David Kim', action: 'Pro Tier Subscription', amount: '+$299', time: '3 hours ago', status: 'completed' },
-];
 
 export function DashboardTemplate({ title }: { title: string }) {
   const [timeRange, setTimeRange] = useState<TimeRange>('30D');
   const [activeMetric, setActiveMetric] = useState<'volume' | 'conversions' | 'latency'>('volume');
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'completed' | 'pending' | 'failed'>('all');
-  const [logs, setLogs] = useState<ActivityLog[]>(initialLogs);
+  const [logs, setLogs] = useState<ActivityLog[]>([]);
   const [hoveredBarIndex, setHoveredBarIndex] = useState<number | null>(null);
 
   const currentData = timeRangeData[timeRange];
 
   const metrics: MetricItem[] = useMemo(
     () => [
-      { id: 'm1', label: 'Total Revenue', value: currentData.revenue, change: '+14.2%', isPositive: true, sparkline: [40, 55, 70, 85, 95] },
-      { id: 'm2', label: 'Active Users', value: currentData.users, change: '+8.7%', isPositive: true, sparkline: [30, 40, 45, 60, 75] },
-      { id: 'm3', label: 'System Uptime', value: currentData.uptime, change: '0.01%', isPositive: true, sparkline: [99, 99, 100, 99, 100] },
-      { id: 'm4', label: 'Avg Latency', value: '42ms', change: '-4.1%', isPositive: true, sparkline: [60, 52, 48, 44, 42] },
+      { id: 'm1', label: 'Total Revenue', value: currentData.revenue, change: '0.0%', isPositive: true, sparkline: [0, 0, 0, 0, 0] },
+      { id: 'm2', label: 'Active Users', value: currentData.users, change: '0.0%', isPositive: true, sparkline: [0, 0, 0, 0, 0] },
+      { id: 'm3', label: 'System Uptime', value: currentData.uptime, change: '0.00%', isPositive: true, sparkline: [100, 100, 100, 100, 100] },
+      { id: 'm4', label: 'Avg Latency', value: '0ms', change: '0.0%', isPositive: true, sparkline: [0, 0, 0, 0, 0] },
     ],
     [currentData]
   );
@@ -87,13 +78,13 @@ export function DashboardTemplate({ title }: { title: string }) {
   };
 
   const handleRefresh = () => {
-    toast.info('Refreshing live operational metrics...');
+    toast.info('Refreshing operational metrics...');
     setLogs((prev) => [
       {
         id: `log-${Date.now()}`,
         user: 'System Bot',
-        action: 'Automated Health Check & Sync',
-        amount: '+$0',
+        action: 'Workspace Health Sync Check',
+        amount: '$0.00',
         time: 'Just now',
         status: 'completed',
       },
@@ -113,7 +104,7 @@ export function DashboardTemplate({ title }: { title: string }) {
               </div>
               <h1 className="text-3xl font-black tracking-tight md:text-4xl text-white">{title}</h1>
               <p className="mt-2 max-w-xl text-sm leading-6 text-white/55">
-                Executive KPIs, live operational signals, and interactive telemetry visualization.
+                Executive KPIs, operational signals, and live telemetry visualization.
               </p>
             </div>
 
@@ -209,12 +200,12 @@ export function DashboardTemplate({ title }: { title: string }) {
               </div>
             </div>
 
-            {/* Interactive Bar Chart Visual */}
+            {/* Bar Chart Visual */}
             <div className="relative">
               <div className="flex h-72 items-end gap-2 sm:gap-3 rounded-xl bg-black/40 p-6 border border-white/5">
                 {currentData.volume.map((val, index) => {
-                  const maxVal = Math.max(...currentData.volume);
-                  const heightPercent = Math.round((val / maxVal) * 100);
+                  const maxVal = Math.max(...currentData.volume, 1);
+                  const heightPercent = val === 0 ? 5 : Math.round((val / maxVal) * 100);
                   const isHovered = hoveredBarIndex === index;
 
                   return (
@@ -224,17 +215,15 @@ export function DashboardTemplate({ title }: { title: string }) {
                       onMouseEnter={() => setHoveredBarIndex(index)}
                       onMouseLeave={() => setHoveredBarIndex(null)}
                     >
-                      {/* Bar */}
                       <div
                         className={`w-full rounded-t-lg transition-all duration-300 ${
                           isHovered
                             ? 'bg-cyan-300 shadow-[0_0_20px_rgba(34,211,238,0.8)] scale-y-105'
-                            : 'bg-cyan-400/70 hover:bg-cyan-400'
+                            : 'bg-cyan-400/40 hover:bg-cyan-400/70'
                         }`}
                         style={{ height: `${heightPercent}%` }}
                       />
 
-                      {/* Tooltip */}
                       {isHovered && (
                         <div className="absolute -top-12 left-1/2 -translate-x-1/2 z-20 rounded-lg border border-cyan-400/30 bg-[#0f131c] px-3 py-1.5 text-center text-xs font-bold text-cyan-200 shadow-2xl whitespace-nowrap">
                           Interval #{index + 1}: <span className="text-white font-black">{val * 10} units</span>
@@ -248,7 +237,7 @@ export function DashboardTemplate({ title }: { title: string }) {
               <div className="mt-3 flex justify-between text-[11px] text-white/30 px-2 font-mono">
                 <span>Start Period</span>
                 <span>Mid Point</span>
-                <span>Current Peak ({currentData.volume[currentData.volume.length - 1] * 10} ops/sec)</span>
+                <span>Current Interval</span>
               </div>
             </div>
           </div>
@@ -263,13 +252,13 @@ export function DashboardTemplate({ title }: { title: string }) {
 
               <div className="space-y-4">
                 <div className="rounded-xl border border-cyan-400/20 bg-cyan-400/5 p-4 text-xs text-white/70 leading-relaxed">
-                  <span className="font-bold text-cyan-300 block mb-1">Elevated Traffic Detected</span>
-                  AI detected a +24.8% conversion surge originating from interactive template-backed project workspaces today.
+                  <span className="font-bold text-cyan-300 block mb-1">Live Telemetry Initialized</span>
+                  System active. Live operational signals and event triggers will log telemetry events dynamically.
                 </div>
 
                 <div className="rounded-xl border border-emerald-400/20 bg-emerald-400/5 p-4 text-xs text-white/70 leading-relaxed">
-                  <span className="font-bold text-emerald-400 block mb-1">System Health Excellent</span>
-                  All API gateways and database clusters are performing within standard 42ms p99 latency thresholds.
+                  <span className="font-bold text-emerald-400 block mb-1">System Health Nominal</span>
+                  All API routes and Supabase database connections operating cleanly.
                 </div>
               </div>
             </div>
@@ -277,9 +266,9 @@ export function DashboardTemplate({ title }: { title: string }) {
             <div className="mt-6 border-t border-white/10 pt-4 flex items-center justify-between text-xs text-white/40">
               <span className="flex items-center gap-2">
                 <Activity className="h-4 w-4 text-cyan-400 animate-pulse" />
-                Live Telemetry Feed
+                Live Telemetry Stream
               </span>
-              <span className="font-mono text-[10px]">SYNC ACTIVE</span>
+              <span className="font-mono text-[10px]">SYNC READY</span>
             </div>
           </aside>
         </section>
@@ -336,8 +325,8 @@ export function DashboardTemplate({ title }: { title: string }) {
               <tbody className="divide-y divide-white/5">
                 {filteredLogs.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="py-8 text-center text-white/30">
-                      No transaction logs matching selected criteria.
+                    <td colSpan={5} className="py-12 text-center text-white/30">
+                      No audit transaction logs recorded yet. Click &quot;Refresh&quot; or perform actions to log events.
                     </td>
                   </tr>
                 ) : (
