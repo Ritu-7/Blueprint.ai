@@ -4,8 +4,6 @@ import type { TemplateKind } from '@/types/project';
 import { logger } from '@/lib/logger/logger';
 import { env } from '@/config/env';
 
-// Narrative-only fields that Gemini is asked to populate; code fields are always kept from the
-// deterministic engine so the LLM cannot hallucinate actual source files.
 const NARRATIVE_FIELDS = [
   'overview',
   'problemStatement',
@@ -24,17 +22,15 @@ const NARRATIVE_FIELDS = [
 type NarrativeField = (typeof NARRATIVE_FIELDS)[number];
 
 export class AIService {
-  // ─── Private: deterministic fallback (synchronous, always valid) ───────────
   private static generateDeterministic(prompt: string): FullBlueprint {
     logger.info(
       `Generating structured 12-section blueprint for: "${prompt.slice(0, 50)}..."`,
-      'aiService',
+      'aiService'
     );
 
     const kind = detectTemplateKind(prompt);
     const baseGenerated = generateProjectFromPrompt(prompt);
 
-    // Build complete structured 12-section model
     const rawData = {
       name: baseGenerated.name,
       kind,
@@ -167,24 +163,130 @@ export class AIService {
       files: baseGenerated.files,
     };
 
-    // Validate structured JSON against Zod schema
     const validated = fullBlueprintSchema.parse(rawData);
     logger.info(`Successfully validated structured 12-section blueprint "${validated.name}"`, 'aiService');
     return validated;
   }
 
-  // ─── Public: async generateProject (Gemini-enhanced, deterministic fallback) ─
+  // ─── Claude (Anthropic) AI Generator ─────────────────────────────────────
+  private static async generateWithClaude(prompt: string, apiKey: string, deterministic: FullBlueprint): Promise<FullBlueprint | null> {
+    try {
+      logger.info(`Calling Claude API (Anthropic) for prompt: "${prompt.slice(0, 50)}..."`, 'aiService');
+
+      const systemInstruction = `You are a senior product architect. Given the following application idea, generate ONLY the narrative and planning sections of a product blueprint as strict JSON — no markdown, no code fences, no extra prose.
+
+Application idea: "${prompt}"
+
+Return a single JSON object with EXACTLY these keys and types:
+
+{
+  "overview": {
+    "title": "string — concise app name",
+    "tagline": "string — one-line value proposition",
+    "description": "string — 2-3 sentence description tailored to prompt"
+  },
+  "problemStatement": {
+    "coreProblem": "string — core problem specific to prompt",
+    "painPoints": ["string", "string", "string"]
+  },
+  "targetUsers": ["string", "string", "string"],
+  "userRoles": [
+    { "role": "string", "description": "string", "permissions": ["string"] }
+  ],
+  "coreFeatures": [
+    { "name": "string", "description": "string", "priority": "critical" }
+  ],
+  "functionalRequirements": [
+    { "id": "FR-01", "category": "string", "description": "string" }
+  ],
+  "nonFunctionalRequirements": [
+    { "category": "string", "requirement": "string" }
+  ],
+  "userStories": [
+    { "asA": "string", "iWantTo": "string", "soThat": "string" }
+  ],
+  "mainWorkflows": [
+    { "name": "string", "steps": ["string", "string", "string", "string"] }
+  ],
+  "techStack": {
+    "frontend": ["string"],
+    "backend": ["string"],
+    "database": ["string"],
+    "auth": ["string"],
+    "hosting": ["string"]
+  },
+  "developmentPhases": [
+    { "phase": "string", "title": "string", "deliverables": ["string"] }
+  ],
+  "potentialRisks": [
+    { "risk": "string", "impact": "medium", "mitigation": "string" }
+  ]
+}
+
+Rules:
+- Impact must be exactly "low", "medium", or "high".
+- Priority must be exactly "low", "medium", "high", or "critical".
+- Return ONLY the JSON object.`;
+
+      const response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'claude-3-5-sonnet-20241022',
+          max_tokens: 4096,
+          messages: [{ role: 'user', content: systemInstruction }],
+        }),
+      });
+
+      if (!response.ok) {
+        const errBody = await response.text();
+        throw new Error(`Claude API HTTP ${response.status}: ${errBody.slice(0, 200)}`);
+      }
+
+      const resData = await response.json();
+      const rawContent = resData.content?.[0]?.text || '';
+      if (!rawContent) throw new Error('Claude returned empty content');
+
+      const cleanedJson = rawContent.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
+      const aiNarrative = JSON.parse(cleanedJson);
+
+      const merged: Record<string, unknown> = { ...deterministic };
+      for (const field of NARRATIVE_FIELDS) {
+        if (field in aiNarrative && aiNarrative[field] !== null && aiNarrative[field] !== undefined) {
+          (merged as Record<NarrativeField, unknown>)[field] = aiNarrative[field];
+        }
+      }
+
+      const validated = fullBlueprintSchema.parse(merged);
+      logger.info(`Successfully generated Claude AI blueprint for "${prompt.slice(0, 50)}..."`, 'aiService');
+      return validated;
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      logger.warn(`Claude API processing failed: ${msg}`, 'aiService');
+      return null;
+    }
+  }
+
+  // ─── Public: async generateProject (Claude -> Gemini -> Deterministic Fallback)
   static async generateProject(prompt: string): Promise<FullBlueprint> {
-    // 1. Always compute the cheap, guaranteed-valid deterministic result first.
     const deterministic = AIService.generateDeterministic(prompt);
 
-    const apiKey = env.GOOGLE_GENERATIVE_AI_API_KEY;
-    if (!apiKey) {
+    const claudeKey = env.ANTHROPIC_API_KEY || env.CLAUDE_API_KEY || process.env.ANTHROPIC_API_KEY || process.env.CLAUDE_API_KEY;
+    if (claudeKey) {
+      const claudeResult = await AIService.generateWithClaude(prompt, claudeKey, deterministic);
+      if (claudeResult) return claudeResult;
+    }
+
+    const geminiKey = env.GOOGLE_GENERATIVE_AI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY;
+    if (!geminiKey) {
       return deterministic;
     }
 
     try {
-      // 2. Ask Gemini to generate only the narrative/planning sections as strict JSON.
       const systemPrompt = `You are a senior product architect. Given the following application idea, generate ONLY the narrative and planning sections of a product blueprint as strict JSON — no markdown, no code fences, no extra keys.
 
 Application idea: "${prompt}"
@@ -245,7 +347,7 @@ Rules:
 - priority must be exactly "low", "medium", "high", or "critical"
 - Return ONLY the JSON object — no prose, no code fences`;
 
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`;
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${geminiKey}`;
       const res = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -268,17 +370,14 @@ Rules:
       const text: string = responseData?.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
       if (!text) throw new Error('Gemini returned empty response');
 
-      // 3. Parse the AI JSON response.
       let aiNarrative: Record<string, unknown>;
       try {
-        // Strip any accidental code fences
         const cleaned = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
         aiNarrative = JSON.parse(cleaned);
       } catch {
         throw new Error('Failed to parse Gemini JSON response');
       }
 
-      // 4. Merge: keep code fields from deterministic, overlay narrative fields from AI.
       const merged: Record<string, unknown> = { ...deterministic };
       for (const field of NARRATIVE_FIELDS) {
         if (field in aiNarrative && aiNarrative[field] !== null && aiNarrative[field] !== undefined) {
@@ -286,18 +385,17 @@ Rules:
         }
       }
 
-      // 5. Re-validate the merged object — if anything is wrong, throw to trigger fallback.
       const validated = fullBlueprintSchema.parse(merged);
       logger.info(
         `AI-enhanced blueprint validated for "${prompt.slice(0, 50)}..."`,
-        'aiService',
+        'aiService'
       );
       return validated;
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       logger.warn(
         `Gemini blueprint generation failed, using deterministic fallback: ${msg}`,
-        'aiService',
+        'aiService'
       );
       return deterministic;
     }
