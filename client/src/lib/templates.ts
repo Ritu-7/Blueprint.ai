@@ -161,303 +161,227 @@ function slugify(text: string) {
     .replace(/(^-|-$)/g, '');
 }
 
-// ─── Dynamic Prompt Domain Analyzer ───
-interface DomainItem {
-  id: string;
-  title: string;
-  subtitle: string;
-  category: string;
-  badge: string;
-  detail: string;
-  metric: string;
-}
-
+// ─── Specialized Interactive Application Generator ───
 function analyzePromptDomain(prompt: string, title: string) {
   const p = prompt.toLowerCase();
-
-  let domainName = 'Custom App';
-  let categories: string[] = ['All', 'Featured', 'Active', 'Archived'];
-  let items: DomainItem[] = [];
-
-  if (p.includes('real estate') || p.includes('property') || p.includes('house') || p.includes('rental') || p.includes('home')) {
-    domainName = 'Real Estate';
-    categories = ['All', 'Villas', 'Penthouses', 'Apartments', 'Estates'];
-    items = [
-      { id: '1', title: 'Oceanview Luxury Villa', subtitle: 'Miami Beach, FL', category: 'Villas', badge: '$1,250,000', detail: '4 Beds • 3 Baths • 3,400 sqft', metric: '4.9 ★' },
-      { id: '2', title: 'Modern Skyline Penthouse', subtitle: 'New York, NY', category: 'Penthouses', badge: '$2,100,000', detail: '3 Beds • 2.5 Baths • 2,800 sqft', metric: '4.8 ★' },
-      { id: '3', title: 'Suburban Family Estate', subtitle: 'Austin, TX', category: 'Estates', badge: '$680,000', detail: '4 Beds • 3 Baths • 2,900 sqft', metric: '5.0 ★' },
-      { id: '4', title: 'Downtown Glass Loft', subtitle: 'Chicago, IL', category: 'Apartments', badge: '$540,000', detail: '2 Beds • 2 Baths • 1,600 sqft', metric: '4.7 ★' },
-    ];
-  } else if (p.includes('recipe') || p.includes('food') || p.includes('cooking') || p.includes('meal') || p.includes('restaurant')) {
-    domainName = 'Culinary';
-    categories = ['All', 'Healthy', 'Italian', 'Quick Meals', 'Desserts'];
-    items = [
-      { id: '1', title: 'Avocado & Salmon Poke Bowl', subtitle: 'Fresh Pacific salmon, quinoa, avocado', category: 'Healthy', badge: '15 min', detail: '420 kcal • High Protein', metric: '4.9 ★' },
-      { id: '2', title: 'Truffle Mushroom Cream Pasta', subtitle: 'Handmade fettuccine with wild truffle', category: 'Italian', badge: '25 min', detail: '680 kcal • Vegetarian', metric: '4.8 ★' },
-      { id: '3', title: 'Matcha Chia Seed Pudding', subtitle: 'Organic green tea, chia, almond milk', category: 'Desserts', badge: '10 min', detail: '210 kcal • Vegan', metric: '4.7 ★' },
-    ];
-  } else if (p.includes('health') || p.includes('doctor') || p.includes('medical') || p.includes('patient') || p.includes('clinic')) {
-    domainName = 'Healthcare';
-    categories = ['All', 'Cardiology', 'Neurology', 'Pediatrics', 'Dermatology'];
-    items = [
-      { id: '1', title: 'Dr. Sarah Jenkins', subtitle: 'Chief of Cardiology', category: 'Cardiology', badge: 'Available Today', detail: '14+ Yrs Exp • 4.9 Rating', metric: '2:30 PM' },
-      { id: '2', title: 'Dr. Michael Chen', subtitle: 'Neurology Specialist', category: 'Neurology', badge: 'Available Tomorrow', detail: '10+ Yrs Exp • 4.8 Rating', metric: '10:00 AM' },
-      { id: '3', title: 'Dr. Elena Rostova', subtitle: 'Pediatric Care Lead', category: 'Pediatrics', badge: 'Available Thu', detail: '12+ Yrs Exp • 5.0 Rating', metric: '11:15 AM' },
-    ];
-  } else if (p.includes('fitness') || p.includes('gym') || p.includes('workout') || p.includes('exercise')) {
-    domainName = 'Fitness';
-    categories = ['All', 'HIIT', 'Strength', 'Cardio', 'Flexibility'];
-    items = [
-      { id: '1', title: 'Full Body HIIT Burn', subtitle: 'High intensity interval training', category: 'HIIT', badge: '45 mins', detail: '520 kcal • 8 Exercises', metric: 'High' },
-      { id: '2', title: 'Core & Stability Session', subtitle: 'Abs, obliques, and lower back strength', category: 'Strength', badge: '30 mins', detail: '280 kcal • 6 Exercises', metric: 'Medium' },
-      { id: '3', title: 'Power Lifting Routine', subtitle: 'Squat, bench press, deadlift focus', category: 'Strength', badge: '60 mins', detail: '640 kcal • 5 Exercises', metric: 'High' },
-    ];
-  } else if (p.includes('crypto') || p.includes('finance') || p.includes('wallet') || p.includes('stock') || p.includes('trading')) {
-    domainName = 'Finance';
-    categories = ['All', 'Layer 1', 'DeFi', 'NFTs', 'Staking'];
-    items = [
-      { id: '1', title: 'Ethereum (ETH)', subtitle: 'Smart contract platform', category: 'Layer 1', badge: '$3,480.20', detail: 'Volume: $18.4B • Staked: 28%', metric: '+4.2%' },
-      { id: '2', title: 'Bitcoin (BTC)', subtitle: 'Digital store of value', category: 'Layer 1', badge: '$64,250.00', detail: 'Volume: $42.1B • Market Cap: $1.2T', metric: '+2.8%' },
-      { id: '3', title: 'Solana (SOL)', subtitle: 'High throughput blockchain', category: 'Layer 1', badge: '$148.50', detail: 'Volume: $4.2B • TPS: 2,400', metric: '-1.1%' },
-    ];
-  } else if (p.includes('job') || p.includes('career') || p.includes('hiring') || p.includes('recruit')) {
-    domainName = 'Job Network';
-    categories = ['All', 'Engineering', 'Design', 'Product', 'DevOps'];
-    items = [
-      { id: '1', title: 'Senior Full-Stack Engineer', subtitle: 'Vercel Labs • San Francisco, CA', category: 'Engineering', badge: '$160k - $200k', detail: 'Next.js, TypeScript, PostgreSQL', metric: 'Remote' },
-      { id: '2', title: 'AI Product Designer', subtitle: 'OpenAI • San Francisco, CA', category: 'Design', badge: '$150k - $190k', detail: 'Figma, Design Systems, Prototyping', metric: 'Hybrid' },
-      { id: '3', title: 'Lead DevOps Specialist', subtitle: 'Stripe • New York, NY', category: 'DevOps', badge: '$175k - $210k', detail: 'Kubernetes, AWS, Terraform', metric: 'Remote' },
-    ];
-  } else {
-    // General Dynamic App
-    domainName = title;
-    categories = ['All', 'Active', 'High Priority', 'Completed'];
-    items = [
-      { id: '1', title: `${title} Primary Module`, subtitle: `Configured workflow for ${prompt.slice(0, 40)}`, category: 'Active', badge: 'High Priority', detail: 'Automated workflow engine enabled', metric: 'Active' },
-      { id: '2', title: 'Data Surface & Analytics', subtitle: 'Real-time telemetry and reporting channel', category: 'Active', badge: 'Operational', detail: 'Latency: 24ms • 99.9% Uptime', metric: 'Live' },
-      { id: '3', title: 'Integration Service', subtitle: 'External REST & GraphQL API connectors', category: 'High Priority', badge: 'Connected', detail: 'Synced with Supabase & PostgreSQL', metric: 'Ready' },
-    ];
-  }
-
   const slug = slugify(title);
 
-  // Generate dynamic app/page.tsx
-  const pageCode = `'use client';
+  let pageCode = '';
+
+  // 1. TODO / TASK / REMOTE TEAM WORKFLOW APP
+  if (p.includes('todo') || p.includes('task') || p.includes('remote') || p.includes('sprint') || p.includes('kanban') || p.includes('checklist') || p.includes('project')) {
+    pageCode = `'use client';
 
 import { useState, useMemo } from 'react';
-import { Search, Sparkles, Plus, ArrowUpRight, Check, Trash2, Filter, Star, Shield, Activity } from 'lucide-react';
+import { Search, Sparkles, Plus, CheckCircle2, Circle, Clock, User, Filter, AlertCircle, Trash2, Calendar } from 'lucide-react';
 
-const initialItems = ${JSON.stringify(items, null, 2)};
-const categories = ${JSON.stringify(categories, null, 2)};
+interface Task {
+  id: string;
+  title: string;
+  description: string;
+  status: 'To Do' | 'In Progress' | 'Review' | 'Completed';
+  priority: 'Urgent' | 'High' | 'Medium' | 'Low';
+  assignee: string;
+  avatar: string;
+  dueDate: string;
+}
+
+const initialTasks: Task[] = [
+  { id: '1', title: 'Prepare Sprint Retrospective Deck', description: 'Gather team feedback metrics and velocity points for Q3.', status: 'In Progress', priority: 'High', assignee: 'Sarah Jenkins', avatar: 'SJ', dueDate: 'Today' },
+  { id: '2', title: 'Fix Auth Session Refresh Token Bug', description: 'Resolve 401 token expiry error during long-lived websocket connection.', status: 'To Do', priority: 'Urgent', assignee: 'Alex Rivera', avatar: 'AR', dueDate: 'Tomorrow' },
+  { id: '3', title: 'Design System Dark Mode Audit', description: 'Review contrast ratios for WCAG AA compliance across dialog components.', status: 'Review', priority: 'Medium', assignee: 'Elena Rostova', avatar: 'ER', dueDate: 'Oct 4' },
+  { id: '4', title: 'Setup PostgreSQL RLS Security Migration', description: 'Add row level security policies for tenant organization IDs.', status: 'Completed', priority: 'High', assignee: 'David Chen', avatar: 'DC', dueDate: 'Completed' },
+];
 
 export default function Page() {
-  const [items, setItems] = useState(initialItems);
+  const [tasks, setTasks] = useState<Task[]>(initialTasks);
   const [searchTerm, setSearchTerm] = useState('');
-  const [activeCategory, setActiveCategory] = useState('All');
+  const [statusFilter, setStatusFilter] = useState<string>('All');
+  const [priorityFilter, setPriorityFilter] = useState<string>('All');
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [newItemTitle, setNewItemTitle] = useState('');
-  const [newItemCategory, setNewItemCategory] = useState(categories[1] || 'General');
 
-  const filteredItems = useMemo(() => {
-    return items.filter((item) => {
-      const matchesSearch = item.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                            item.subtitle.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesCategory = activeCategory === 'All' || item.category === activeCategory;
-      return matchesSearch && matchesCategory;
+  // Form State
+  const [titleInput, setTitleInput] = useState('');
+  const [descInput, setDescInput] = useState('');
+  const [priorityInput, setPriorityInput] = useState<'Urgent' | 'High' | 'Medium' | 'Low'>('High');
+  const [assigneeInput, setAssigneeInput] = useState('Alex Rivera');
+
+  const filteredTasks = useMemo(() => {
+    return tasks.filter((t) => {
+      const matchSearch = t.title.toLowerCase().includes(searchTerm.toLowerCase()) || t.description.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchStatus = statusFilter === 'All' || t.status === statusFilter;
+      const matchPriority = priorityFilter === 'All' || t.priority === priorityFilter;
+      return matchSearch && matchStatus && matchPriority;
     });
-  }, [items, searchTerm, activeCategory]);
+  }, [tasks, searchTerm, statusFilter, priorityFilter]);
 
-  const handleAddItem = (e: React.FormEvent) => {
+  const toggleTaskComplete = (id: string) => {
+    setTasks(tasks.map(t => t.id === id ? { ...t, status: t.status === 'Completed' ? 'In Progress' : 'Completed' } : t));
+  };
+
+  const handleCreateTask = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newItemTitle.trim()) return;
-
-    const newItem = {
+    if (!titleInput.trim()) return;
+    const newTask: Task = {
       id: String(Date.now()),
-      title: newItemTitle.trim(),
-      subtitle: 'Newly created ${domainName} record',
-      category: newItemCategory,
-      badge: 'New',
-      detail: 'Custom record generated in real time',
-      metric: 'Active',
+      title: titleInput.trim(),
+      description: descInput.trim() || 'No additional details provided.',
+      status: 'To Do',
+      priority: priorityInput,
+      assignee: assigneeInput,
+      avatar: assigneeInput.split(' ').map(n => n[0]).join(''),
+      dueDate: 'Oct 8',
     };
-
-    setItems([newItem, ...items]);
-    setNewItemTitle('');
+    setTasks([newTask, ...tasks]);
+    setTitleInput('');
+    setDescInput('');
     setIsModalOpen(false);
   };
 
-  const handleDeleteItem = (id: string) => {
-    setItems(items.filter((item) => item.id !== id));
+  const deleteTask = (id: string) => {
+    setTasks(tasks.filter(t => t.id !== id));
   };
 
+  const completedCount = tasks.filter(t => t.status === 'Completed').length;
+  const progressPercentage = tasks.length > 0 ? Math.round((completedCount / tasks.length) * 100) : 0;
+
   return (
-    <main className="min-h-screen bg-[#05070a] p-4 md:p-8 text-white font-sans">
+    <main className="min-h-screen bg-[#05070a] text-white p-4 md:p-8 font-sans">
       <div className="mx-auto max-w-6xl space-y-6">
-        
-        {/* Header Hero Banner */}
+        {/* Header */}
         <header className="rounded-2xl border border-white/10 bg-gradient-to-br from-white/[0.05] to-white/[0.02] p-6 shadow-2xl backdrop-blur-sm">
-          <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
-            <div className="inline-flex items-center gap-2 rounded-full border border-cyan-400/30 bg-cyan-400/10 px-3 py-1 text-xs font-bold uppercase tracking-widest text-cyan-200">
-              <Sparkles className="h-3.5 w-3.5 text-cyan-400" />
-              ${domainName} Platform
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <div className="inline-flex items-center gap-2 rounded-full border border-cyan-400/30 bg-cyan-400/10 px-3 py-1 text-xs font-bold uppercase tracking-widest text-cyan-300">
+                <Sparkles className="h-3.5 w-3.5 text-cyan-400" />
+                Remote Team Workspace
+              </div>
+              <h1 className="mt-3 text-3xl md:text-4xl font-black text-white">${title}</h1>
+              <p className="mt-1 text-sm text-white/60">Organize tasks, track sprint velocity, and collaborate with your product team in real time.</p>
             </div>
             <button
               onClick={() => setIsModalOpen(true)}
-              className="inline-flex items-center gap-2 rounded-xl bg-cyan-400 px-4 py-2 text-sm font-black text-[#05070a] shadow-[0_0_20px_rgba(0,243,255,0.3)] hover:bg-cyan-300 transition-all active:scale-[0.98]"
+              className="inline-flex items-center gap-2 rounded-xl bg-cyan-400 px-5 py-2.5 text-sm font-black text-black shadow-[0_0_20px_rgba(0,243,255,0.3)] hover:bg-cyan-300 transition active:scale-95"
             >
               <Plus className="h-4 w-4" />
-              Add Record
+              New Task
             </button>
           </div>
 
-          <h1 className="text-3xl md:text-4xl font-black tracking-tight text-white">${title}</h1>
-          <p className="mt-2 max-w-2xl text-sm leading-relaxed text-white/60">
-            Tailored ${domainName.toLowerCase()} application tailored for your prompt. Filter records, search data, and manage entries live.
-          </p>
-
-          {/* Metric Stats Cards */}
-          <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <div className="rounded-xl border border-cyan-400/20 bg-white/[0.03] p-4">
-              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/40">Total Records</p>
-              <strong className="mt-1 block text-2xl font-black text-white">{items.length}</strong>
+          {/* Progress Bar */}
+          <div className="mt-6 rounded-xl border border-white/10 bg-white/[0.03] p-4">
+            <div className="flex items-center justify-between text-xs font-bold text-white/70 mb-2">
+              <span>Sprint Completion Rate</span>
+              <span className="text-cyan-300">{completedCount} of {tasks.length} Completed ({progressPercentage}%)</span>
             </div>
-            <div className="rounded-xl border border-cyan-400/20 bg-white/[0.03] p-4">
-              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/40">Matching Search</p>
-              <strong className="mt-1 block text-2xl font-black text-cyan-300">{filteredItems.length}</strong>
-            </div>
-            <div className="rounded-xl border border-cyan-400/20 bg-white/[0.03] p-4">
-              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/40">System Status</p>
-              <strong className="mt-1 block text-2xl font-black text-emerald-400">Operational</strong>
+            <div className="h-2 w-full rounded-full bg-white/10 overflow-hidden">
+              <div className="h-full bg-gradient-to-r from-cyan-400 to-emerald-400 transition-all duration-300" style={{ width: \`\${progressPercentage}%\` }} />
             </div>
           </div>
         </header>
 
-        {/* Search & Category Filter Controls */}
-        <section className="flex flex-col gap-4 rounded-2xl border border-white/10 bg-white/[0.025] p-4 md:flex-row md:items-center md:justify-between">
+        {/* Filters Bar */}
+        <section className="flex flex-col gap-4 rounded-2xl border border-white/10 bg-white/[0.025] p-4 md:flex-row md:items-center justify-between">
           <div className="relative flex-1">
             <Search className="absolute left-3.5 top-3 h-4 w-4 text-white/30" />
             <input
               type="text"
-              placeholder="Search ${title.toLowerCase()}..."
+              placeholder="Search tasks by title or keyword..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="h-10 w-full rounded-xl border border-white/10 bg-white/[0.04] pl-10 pr-4 text-sm text-white placeholder-white/30 focus:border-cyan-400 focus:outline-none transition-colors"
+              className="h-10 w-full rounded-xl border border-white/10 bg-white/[0.04] pl-10 pr-4 text-sm text-white placeholder-white/30 focus:border-cyan-400 focus:outline-none transition"
             />
           </div>
 
-          <div className="flex flex-wrap gap-1.5">
-            {categories.map((cat: string) => (
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs font-bold text-white/40 flex items-center gap-1"><Filter className="h-3 w-3" /> Status:</span>
+            {['All', 'To Do', 'In Progress', 'Review', 'Completed'].map((st) => (
               <button
-                key={cat}
-                onClick={() => setActiveCategory(cat)}
-                className={\`rounded-lg px-3 py-1.5 text-xs font-bold transition-all \${
-                  activeCategory === cat
-                    ? 'bg-cyan-400 text-[#05070a] shadow-[0_0_12px_rgba(0,243,255,0.2)]'
-                    : 'bg-white/[0.04] text-white/50 hover:bg-white/10 hover:text-white'
+                key={st}
+                onClick={() => setStatusFilter(st)}
+                className={\`rounded-lg px-3 py-1.5 text-xs font-bold transition \${
+                  statusFilter === st ? 'bg-cyan-400 text-black shadow-[0_0_12px_rgba(0,243,255,0.2)]' : 'bg-white/5 text-white/50 hover:bg-white/10'
                 }\`}
               >
-                {cat}
+                {st}
               </button>
             ))}
           </div>
         </section>
 
-        {/* Dynamic Records Grid */}
-        <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-2">
-          {filteredItems.map((item) => (
-            <article
-              key={item.id}
-              className="group relative flex flex-col justify-between rounded-2xl border border-white/10 bg-white/[0.03] p-5 transition-all duration-200 hover:border-cyan-400/40 hover:bg-white/[0.045] shadow-lg"
-            >
+        {/* Tasks Grid */}
+        <section className="grid gap-4 sm:grid-cols-2">
+          {filteredTasks.map((t) => (
+            <article key={t.id} className="group relative rounded-2xl border border-white/10 bg-white/[0.03] p-5 hover:border-cyan-400/40 hover:bg-white/[0.045] transition flex flex-col justify-between">
               <div>
                 <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <span className="inline-block rounded-md border border-cyan-400/30 bg-cyan-400/10 px-2 py-0.5 text-[10px] font-bold text-cyan-300">
-                      {item.category}
-                    </span>
-                    <h3 className="mt-2 text-lg font-black text-white">{item.title}</h3>
+                  <button onClick={() => toggleTaskComplete(t.id)} className="mt-0.5 text-white/40 hover:text-cyan-400 transition">
+                    {t.status === 'Completed' ? <CheckCircle2 className="h-5 w-5 text-emerald-400" /> : <Circle className="h-5 w-5" />}
+                  </button>
+                  <div className="flex-1">
+                    <h3 className={\`text-base font-bold text-white \${t.status === 'Completed' ? 'line-through text-white/40' : ''}\`}>{t.title}</h3>
+                    <p className="mt-1 text-xs text-white/60 line-clamp-2">{t.description}</p>
                   </div>
-                  <span className="rounded-full bg-white/10 px-2.5 py-1 text-xs font-bold text-emerald-300">
-                    {item.badge}
-                  </span>
-                </div>
-
-                <p className="mt-2 text-xs text-white/50">{item.subtitle}</p>
-                <div className="mt-4 rounded-xl bg-black/40 p-3 text-xs font-mono text-white/70">
-                  {item.detail}
+                  <button onClick={() => deleteTask(t.id)} className="opacity-0 group-hover:opacity-100 text-white/30 hover:text-rose-400 transition">
+                    <Trash2 className="h-4 w-4" />
+                  </button>
                 </div>
               </div>
 
-              <div className="mt-5 flex items-center justify-between border-t border-white/10 pt-3">
-                <span className="text-xs font-bold text-cyan-400">{item.metric}</span>
-                <button
-                  onClick={() => handleDeleteItem(item.id)}
-                  className="p-1.5 text-white/30 hover:text-red-400 transition-colors"
-                  title="Remove Item"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
+              <div className="mt-4 pt-4 border-t border-white/5 flex items-center justify-between text-xs">
+                <div className="flex items-center gap-2">
+                  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-cyan-400/20 font-bold text-cyan-300 text-[10px]">{t.avatar}</span>
+                  <span className="text-white/60 font-medium">{t.assignee}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className={\`rounded-md px-2 py-0.5 text-[10px] font-bold \${
+                    t.priority === 'Urgent' ? 'bg-rose-400/20 text-rose-300 border border-rose-400/30' :
+                    t.priority === 'High' ? 'bg-amber-400/20 text-amber-300 border border-amber-400/30' : 'bg-blue-400/20 text-blue-300'
+                  }\`}>{t.priority}</span>
+                  <span className="text-white/40 text-[11px] flex items-center gap-1"><Calendar className="h-3 w-3" /> {t.dueDate}</span>
+                </div>
               </div>
             </article>
           ))}
-
-          {filteredItems.length === 0 && (
-            <div className="col-span-full rounded-2xl border border-dashed border-white/10 py-12 text-center text-white/40">
-              <p className="text-sm font-bold">No records match your search query.</p>
-              <button
-                onClick={() => { setSearchTerm(''); setActiveCategory('All'); }}
-                className="mt-2 text-xs font-bold text-cyan-400 hover:underline"
-              >
-                Clear Filters
-              </button>
-            </div>
-          )}
         </section>
       </div>
 
-      {/* Add Item Modal */}
+      {/* Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
           <div className="w-full max-w-md rounded-2xl border border-white/10 bg-[#0a0d14] p-6 text-white shadow-2xl">
-            <h3 className="text-lg font-black">Add New ${domainName} Record</h3>
-            <form onSubmit={handleAddItem} className="mt-4 space-y-4">
+            <h3 className="text-lg font-black">Create New Task</h3>
+            <form onSubmit={handleCreateTask} className="mt-4 space-y-4">
               <div>
-                <label className="block text-xs font-bold text-white/60 mb-1">Title</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="Record title..."
-                  value={newItemTitle}
-                  onChange={(e) => setNewItemTitle(e.target.value)}
-                  className="w-full rounded-xl border border-white/10 bg-white/[0.04] p-3 text-sm text-white focus:border-cyan-400 focus:outline-none"
-                />
+                <label className="block text-xs font-bold text-white/60 mb-1">Task Title</label>
+                <input type="text" required placeholder="e.g. Implement API rate limiter" value={titleInput} onChange={e => setTitleInput(e.target.value)} className="w-full rounded-xl border border-white/10 bg-white/5 p-3 text-sm text-white focus:border-cyan-400 focus:outline-none" />
               </div>
               <div>
-                <label className="block text-xs font-bold text-white/60 mb-1">Category</label>
-                <select
-                  value={newItemCategory}
-                  onChange={(e) => setNewItemCategory(e.target.value)}
-                  className="w-full rounded-xl border border-white/10 bg-[#151a26] p-3 text-sm text-white focus:border-cyan-400 focus:outline-none"
-                >
-                  {categories.filter(c => c !== 'All').map(c => (
-                    <option key={c} value={c}>{c}</option>
-                  ))}
-                </select>
+                <label className="block text-xs font-bold text-white/60 mb-1">Description</label>
+                <textarea rows={3} placeholder="Task requirements..." value={descInput} onChange={e => setDescInput(e.target.value)} className="w-full rounded-xl border border-white/10 bg-white/5 p-3 text-sm text-white focus:border-cyan-400 focus:outline-none" />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-white/60 mb-1">Priority</label>
+                  <select value={priorityInput} onChange={e => setPriorityInput(e.target.value as any)} className="w-full rounded-xl border border-white/10 bg-[#151a26] p-3 text-sm text-white focus:border-cyan-400 focus:outline-none">
+                    <option value="Urgent">Urgent</option>
+                    <option value="High">High</option>
+                    <option value="Medium">Medium</option>
+                    <option value="Low">Low</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-white/60 mb-1">Assignee</label>
+                  <select value={assigneeInput} onChange={e => setAssigneeInput(e.target.value)} className="w-full rounded-xl border border-white/10 bg-[#151a26] p-3 text-sm text-white focus:border-cyan-400 focus:outline-none">
+                    <option value="Alex Rivera">Alex Rivera</option>
+                    <option value="Sarah Jenkins">Sarah Jenkins</option>
+                    <option value="David Chen">David Chen</option>
+                  </select>
+                </div>
               </div>
               <div className="flex justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-xs font-bold hover:bg-white/10"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="rounded-xl bg-cyan-400 px-4 py-2 text-xs font-black text-black hover:bg-cyan-300"
-                >
-                  Save Record
-                </button>
+                <button type="button" onClick={() => setIsModalOpen(false)} className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-xs font-bold hover:bg-white/10">Cancel</button>
+                <button type="submit" className="rounded-xl bg-cyan-400 px-4 py-2 text-xs font-black text-black hover:bg-cyan-300">Create Task</button>
               </div>
             </form>
           </div>
@@ -467,6 +391,330 @@ export default function Page() {
   );
 }
 `;
+  }
+  // 2. RESTAURANT / FOOD / MENU APP
+  else if (p.includes('recipe') || p.includes('food') || p.includes('restaurant') || p.includes('menu') || p.includes('meal') || p.includes('dish') || p.includes('cafe')) {
+    pageCode = `'use client';
+
+import { useState } from 'react';
+import { Search, Sparkles, Plus, Minus, ShoppingBag, Star, Clock, Flame, Check, Utensils } from 'lucide-react';
+
+interface Dish {
+  id: string;
+  name: string;
+  description: string;
+  category: 'Specials' | 'Appetizers' | 'Mains' | 'Desserts' | 'Drinks';
+  price: number;
+  calories: string;
+  prepTime: string;
+  rating: number;
+  badge: string;
+}
+
+const dishes: Dish[] = [
+  { id: '1', name: 'Truffle Mushroom Fettuccine', description: 'Handcrafted ribbon pasta with wild porcini mushrooms, black truffle butter, and aged parmesan.', category: 'Specials', price: 24.50, calories: '680 kcal', prepTime: '20 mins', rating: 4.9, badge: 'Chef Special' },
+  { id: '2', name: 'Artisanal Wood-Fired Margherita', description: 'San Marzano tomato sauce, fresh buffalo mozzarella, organic basil, and extra virgin olive oil.', category: 'Mains', price: 18.00, calories: '540 kcal', prepTime: '15 mins', rating: 4.8, badge: 'Popular' },
+  { id: '3', name: 'Avocado & Pacific Salmon Tartare', description: 'Sustainably caught wild salmon, Hass avocado, yuzu dressing, and crispy lotus root chips.', category: 'Appetizers', price: 16.50, calories: '320 kcal', prepTime: '10 mins', rating: 4.9, badge: 'Fresh' },
+  { id: '4', name: 'Dark Chocolate Lava Cake', description: 'Warm Valrhona chocolate cake with molten center, served with Madagascar vanilla bean gelato.', category: 'Desserts', price: 12.00, calories: '410 kcal', prepTime: '12 mins', rating: 5.0, badge: 'Dessert' },
+];
+
+export default function Page() {
+  const [activeCategory, setActiveCategory] = useState<string>('All');
+  const [cart, setCart] = useState<{ dish: Dish; quantity: number }[]>([]);
+  const [isCartOpen, setIsCartOpen] = useState(false);
+  const [orderPlaced, setOrderPlaced] = useState(false);
+
+  const addToCart = (dish: Dish) => {
+    const existing = cart.find(item => item.dish.id === dish.id);
+    if (existing) {
+      setCart(cart.map(item => item.dish.id === dish.id ? { ...item, quantity: item.quantity + 1 } : item));
+    } else {
+      setCart([...cart, { dish, quantity: 1 }]);
+    }
+  };
+
+  const updateQuantity = (dishId: string, delta: number) => {
+    setCart(cart.map(item => {
+      if (item.dish.id === dishId) {
+        const newQty = item.quantity + delta;
+        return newQty > 0 ? { ...item, quantity: newQty } : null;
+      }
+      return item;
+    }).filter(Boolean) as any);
+  };
+
+  const subtotal = cart.reduce((acc, item) => acc + (item.dish.price * item.quantity), 0);
+  const tax = subtotal * 0.08;
+  const total = subtotal + tax;
+
+  const filteredDishes = activeCategory === 'All' ? dishes : dishes.filter(d => d.category === activeCategory);
+
+  return (
+    <main className="min-h-screen bg-[#05070a] text-white p-4 md:p-8 font-sans">
+      <div className="mx-auto max-w-6xl space-y-6">
+        <header className="rounded-2xl border border-white/10 bg-gradient-to-br from-amber-500/10 via-white/[0.02] to-white/[0.01] p-6 backdrop-blur-sm shadow-2xl flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <div className="inline-flex items-center gap-2 rounded-full border border-amber-400/30 bg-amber-400/10 px-3 py-1 text-xs font-bold uppercase text-amber-300">
+              <Utensils className="h-3.5 w-3.5 text-amber-400" />
+              Gourmet Kitchen & Dining
+            </div>
+            <h1 className="mt-3 text-3xl md:text-4xl font-black text-white">${title}</h1>
+            <p className="mt-1 text-sm text-white/60">Explore artisanal dishes, customize your meal order, and reserve tables live.</p>
+          </div>
+          <button
+            onClick={() => setIsCartOpen(true)}
+            className="relative inline-flex items-center gap-2 rounded-xl bg-amber-400 px-5 py-2.5 text-sm font-black text-black shadow-[0_0_20px_rgba(251,191,36,0.3)] hover:bg-amber-300 transition"
+          >
+            <ShoppingBag className="h-4 w-4" />
+            Order Cart ({cart.reduce((a, b) => a + b.quantity, 0)})
+          </button>
+        </header>
+
+        {/* Category Filter */}
+        <div className="flex gap-2 overflow-x-auto pb-2">
+          {['All', 'Specials', 'Appetizers', 'Mains', 'Desserts'].map(cat => (
+            <button
+              key={cat}
+              onClick={() => setActiveCategory(cat)}
+              className={\`rounded-xl px-4 py-2 text-xs font-bold transition whitespace-nowrap \${
+                activeCategory === cat ? 'bg-amber-400 text-black font-black' : 'bg-white/5 text-white/60 hover:bg-white/10'
+              }\`}
+            >
+              {cat}
+            </button>
+          ))}
+        </div>
+
+        {/* Dishes Grid */}
+        <section className="grid gap-4 sm:grid-cols-2">
+          {filteredDishes.map(d => (
+            <article key={d.id} className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 hover:border-amber-400/40 transition flex flex-col justify-between">
+              <div>
+                <div className="flex items-start justify-between gap-2">
+                  <span className="rounded-md border border-amber-400/30 bg-amber-400/10 px-2.5 py-0.5 text-[10px] font-bold text-amber-300">{d.badge}</span>
+                  <span className="flex items-center gap-1 text-xs font-bold text-amber-400"><Star className="h-3.5 w-3.5 fill-amber-400" /> {d.rating}</span>
+                </div>
+                <h3 className="mt-3 text-lg font-bold text-white">{d.name}</h3>
+                <p className="mt-1 text-xs text-white/60 line-clamp-2">{d.description}</p>
+              </div>
+
+              <div className="mt-5 flex items-center justify-between pt-4 border-t border-white/5">
+                <div>
+                  <span className="text-xl font-black text-amber-300">\${d.price.toFixed(2)}</span>
+                  <span className="ml-2 text-[11px] text-white/40">{d.prepTime} • {d.calories}</span>
+                </div>
+                <button
+                  onClick={() => addToCart(d)}
+                  className="rounded-xl bg-white/10 hover:bg-amber-400 hover:text-black px-3.5 py-1.5 text-xs font-bold transition"
+                >
+                  + Add to Order
+                </button>
+              </div>
+            </article>
+          ))}
+        </section>
+      </div>
+
+      {/* Cart Drawer Modal */}
+      {isCartOpen && (
+        <div className="fixed inset-0 z-50 flex justify-end bg-black/80 backdrop-blur-sm">
+          <div className="w-full max-w-md bg-[#0a0d14] border-l border-white/10 p-6 flex flex-col justify-between text-white">
+            <div>
+              <div className="flex items-center justify-between border-b border-white/10 pb-4">
+                <h3 className="text-lg font-black flex items-center gap-2"><ShoppingBag className="h-5 w-5 text-amber-400" /> Your Order</h3>
+                <button onClick={() => setIsCartOpen(false)} className="text-white/40 hover:text-white">✕</button>
+              </div>
+
+              {cart.length === 0 ? (
+                <p className="mt-8 text-center text-sm text-white/40">Your cart is empty. Add delicious items to start!</p>
+              ) : (
+                <div className="mt-4 space-y-3 max-h-[50vh] overflow-y-auto pr-1">
+                  {cart.map(item => (
+                    <div key={item.dish.id} className="flex items-center justify-between rounded-xl bg-white/5 p-3">
+                      <div>
+                        <h4 className="text-xs font-bold">{item.dish.name}</h4>
+                        <p className="text-[11px] text-amber-300 font-bold">\${(item.dish.price * item.quantity).toFixed(2)}</p>
+                      </div>
+                      <div className="flex items-center gap-2 bg-white/10 rounded-lg px-2 py-1">
+                        <button onClick={() => updateQuantity(item.dish.id, -1)} className="text-xs font-bold text-white/60 hover:text-white">-</button>
+                        <span className="text-xs font-bold">{item.quantity}</span>
+                        <button onClick={() => updateQuantity(item.dish.id, 1)} className="text-xs font-bold text-white/60 hover:text-white">+</button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {cart.length > 0 && (
+              <div className="border-t border-white/10 pt-4 space-y-3">
+                <div className="flex justify-between text-xs text-white/60"><span>Subtotal</span><span>\${subtotal.toFixed(2)}</span></div>
+                <div className="flex justify-between text-xs text-white/60"><span>Tax (8%)</span><span>\${tax.toFixed(2)}</span></div>
+                <div className="flex justify-between text-sm font-black text-amber-300"><span>Total</span><span>\${total.toFixed(2)}</span></div>
+                <button
+                  onClick={() => { setOrderPlaced(true); setCart([]); }}
+                  className="w-full rounded-xl bg-amber-400 p-3 text-center text-xs font-black text-black hover:bg-amber-300 transition"
+                >
+                  Place Order Now (\${total.toFixed(2)})
+                </button>
+              </div>
+            )}
+
+            {orderPlaced && (
+              <div className="rounded-xl border border-emerald-400/30 bg-emerald-400/10 p-4 text-center mt-4">
+                <Check className="h-6 w-6 text-emerald-400 mx-auto" />
+                <p className="mt-1 text-xs font-bold text-emerald-300">Order Confirmed!</p>
+                <p className="text-[10px] text-white/60">Kitchen is preparing your order now.</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </main>
+  );
+}
+`;
+  }
+  // 3. E-COMMERCE / STORE APP
+  else if (p.includes('ecommerce') || p.includes('store') || p.includes('shop') || p.includes('cart') || p.includes('product') || p.includes('checkout')) {
+    pageCode = `'use client';
+
+import { useState } from 'react';
+import { ShoppingCart, Search, Sparkles, Star, Tag, ShieldCheck, ArrowRight } from 'lucide-react';
+
+interface Product {
+  id: string;
+  title: string;
+  price: number;
+  originalPrice: number;
+  category: string;
+  rating: number;
+  badge: string;
+}
+
+const products: Product[] = [
+  { id: '1', title: 'Wireless Noise-Canceling Headphones', price: 199.99, originalPrice: 249.99, category: 'Audio', rating: 4.8, badge: 'Top Seller' },
+  { id: '2', title: 'Minimalist Mechanical Keyboard', price: 129.50, originalPrice: 159.99, category: 'Peripherals', rating: 4.9, badge: '20% OFF' },
+  { id: '3', title: 'Ergonomic Standing Desk Mat', price: 59.00, originalPrice: 79.00, category: 'Accessories', rating: 4.7, badge: 'Popular' },
+  { id: '4', title: 'Ultra HD 4K Webcam with Mic', price: 89.99, originalPrice: 110.00, category: 'Peripherals', rating: 4.6, badge: 'New Arrival' },
+];
+
+export default function Page() {
+  const [cartCount, setCartCount] = useState(0);
+
+  return (
+    <main className="min-h-screen bg-[#05070a] text-white p-4 md:p-8 font-sans">
+      <div className="mx-auto max-w-6xl space-y-6">
+        <header className="rounded-2xl border border-white/10 bg-white/[0.03] p-6 flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-black text-white">${title}</h1>
+            <p className="text-xs text-white/60 mt-1">Discover premium items, seamless checkout, and live order tracking.</p>
+          </div>
+          <button className="relative rounded-xl bg-cyan-400 px-4 py-2.5 text-xs font-black text-black flex items-center gap-2">
+            <ShoppingCart className="h-4 w-4" /> Cart ({cartCount})
+          </button>
+        </header>
+
+        <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {products.map(p => (
+            <div key={p.id} className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 hover:border-cyan-400/40 transition flex flex-col justify-between">
+              <div>
+                <span className="rounded-md bg-cyan-400/20 text-cyan-300 text-[10px] font-bold px-2 py-0.5">{p.badge}</span>
+                <h3 className="mt-2 text-sm font-bold text-white">{p.title}</h3>
+                <div className="mt-1 flex items-center gap-1 text-xs text-amber-400"><Star className="h-3 w-3 fill-amber-400" /> {p.rating}</div>
+              </div>
+              <div className="mt-4 flex items-center justify-between pt-3 border-t border-white/5">
+                <span className="text-base font-black text-cyan-300">\${p.price}</span>
+                <button onClick={() => setCartCount(c => c + 1)} className="rounded-lg bg-white/10 hover:bg-cyan-400 hover:text-black px-3 py-1 text-xs font-bold transition">+ Add</button>
+              </div>
+            </div>
+          ))}
+        </section>
+      </div>
+    </main>
+  );
+}
+`;
+  }
+  // 4. GENERAL DYNAMIC APPLICATION
+  else {
+    pageCode = `'use client';
+
+import { useState, useMemo } from 'react';
+import { Search, Sparkles, Plus, Check, Trash2, Filter, Star, Activity, ArrowUpRight } from 'lucide-react';
+
+interface AppItem {
+  id: string;
+  title: string;
+  subtitle: string;
+  category: string;
+  badge: string;
+  status: string;
+}
+
+const initialItems: AppItem[] = [
+  { id: '1', title: '${title} Core Workspace', subtitle: 'Main interactive workflow module for ${prompt.slice(0, 40)}', category: 'Active', badge: 'High Priority', status: 'Operational' },
+  { id: '2', title: 'Data Telemetry & Stream', subtitle: 'Real-time telemetry and reporting channel', category: 'Active', badge: 'Live Sync', status: 'Connected' },
+  { id: '3', title: 'Automated Event Handler', subtitle: 'Background event triggers and state sync', category: 'Automation', badge: 'Automated', status: 'Ready' },
+];
+
+export default function Page() {
+  const [items, setItems] = useState<AppItem[]>(initialItems);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [newItemTitle, setNewItemTitle] = useState('');
+
+  const filteredItems = useMemo(() => {
+    return items.filter(item => item.title.toLowerCase().includes(searchTerm.toLowerCase()));
+  }, [items, searchTerm]);
+
+  const handleAddItem = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newItemTitle.trim()) return;
+    setItems([{ id: String(Date.now()), title: newItemTitle.trim(), subtitle: 'Newly created entry', category: 'Active', badge: 'New', status: 'Active' }, ...items]);
+    setNewItemTitle('');
+    setIsModalOpen(false);
+  };
+
+  return (
+    <main className="min-h-screen bg-[#05070a] p-4 md:p-8 text-white font-sans">
+      <div className="mx-auto max-w-6xl space-y-6">
+        <header className="rounded-2xl border border-white/10 bg-gradient-to-br from-white/[0.05] to-white/[0.02] p-6 shadow-2xl backdrop-blur-sm">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <div className="inline-flex items-center gap-2 rounded-full border border-cyan-400/30 bg-cyan-400/10 px-3 py-1 text-xs font-bold uppercase tracking-widest text-cyan-200">
+                <Sparkles className="h-3.5 w-3.5 text-cyan-400" />
+                Live Application
+              </div>
+              <h1 className="mt-2 text-3xl md:text-4xl font-black text-white">${title}</h1>
+              <p className="mt-1 text-sm text-white/60">Tailored full-stack application workspace matching your exact prompt requirements.</p>
+            </div>
+            <button onClick={() => setIsModalOpen(true)} className="inline-flex items-center gap-2 rounded-xl bg-cyan-400 px-4 py-2.5 text-sm font-black text-black shadow-[0_0_20px_rgba(0,243,255,0.3)] hover:bg-cyan-300 transition">
+              <Plus className="h-4 w-4" /> Add Item
+            </button>
+          </div>
+        </header>
+
+        <section className="relative">
+          <Search className="absolute left-3.5 top-3 h-4 w-4 text-white/30" />
+          <input type="text" placeholder="Search items..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="h-10 w-full rounded-xl border border-white/10 bg-white/[0.04] pl-10 pr-4 text-sm text-white focus:border-cyan-400 focus:outline-none" />
+        </section>
+
+        <section className="grid gap-4 sm:grid-cols-2">
+          {filteredItems.map(item => (
+            <div key={item.id} className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 hover:border-cyan-400/40 transition">
+              <span className="rounded-md border border-cyan-400/30 bg-cyan-400/10 px-2 py-0.5 text-[10px] font-bold text-cyan-300">{item.badge}</span>
+              <h3 className="mt-2 text-base font-bold text-white">{item.title}</h3>
+              <p className="mt-1 text-xs text-white/60">{item.subtitle}</p>
+            </div>
+          ))}
+        </section>
+      </div>
+    </main>
+  );
+}
+`;
+  }
 
   const globalsCss = `@tailwind base;
 @tailwind components;
@@ -534,14 +782,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     { path: 'package.json', name: 'package.json', language: 'json', content: packageJson },
   ];
 
-  return { title, domainName, schema, api, files };
+  return { title, domainName: title, schema, api, files };
 }
 
 function previewFor(kind: TemplateKind, title: string) {
   return `<main class="min-h-full bg-[#05070a] p-6 text-white">
   <section class="mx-auto max-w-6xl space-y-6">
     <div class="rounded-2xl border border-white/10 bg-white/[0.04] p-6 shadow-2xl">
-      <p class="mb-3 text-xs font-black uppercase tracking-[0.28em] text-cyan-300">AI Application Preview</p>       
+      <p class="mb-3 text-xs font-black uppercase tracking-[0.28em] text-cyan-300">AI Application Preview</p>
       <h1 class="text-4xl font-black tracking-tight">${title}</h1>
       <p class="mt-3 max-w-2xl text-sm leading-6 text-white/55">Generated interactive full-stack workspace with dynamic data surfaces.</p>
     </div>
