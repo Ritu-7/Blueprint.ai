@@ -12,7 +12,10 @@
  *   - Run from the client/ directory.
  */
 
-import 'dotenv/config';
+import dotenv from 'dotenv';
+import path from 'path';
+dotenv.config({ path: path.resolve(process.cwd(), '../.env') });
+dotenv.config({ path: path.resolve(process.cwd(), '.env') });
 import { createClerkClient } from '@clerk/backend';
 
 const userId = process.argv[2];

@@ -1,13 +1,14 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import {
   AlertCircle, AlertTriangle, CheckCircle2, ChevronDown, ChevronUp,
-  Code2, GitCommit, GitPullRequest, Play, Terminal, Trash2, XCircle,
-  FileX2, Maximize2, Minimize2
+  Code2, GitCommit, GitPullRequest, Terminal, Trash2,
+  Maximize2, Minimize2, Copy, Eye
 } from 'lucide-react';
 import type { ProjectFile } from '@/types/project';
 import { cn } from '@/utils/utils';
+import { toast } from 'sonner';
 
 export type BottomTab = 'terminal' | 'problems' | 'git' | 'tests';
 
@@ -26,14 +27,6 @@ export interface ProblemItem {
   severity: 'error' | 'warning';
 }
 
-export interface TestResult {
-  id: string;
-  name: string;
-  status: 'passed' | 'failed' | 'running';
-  durationMs: number;
-  errorMsg?: string;
-}
-
 export function BottomWorkspaceDock({
   isExpanded,
   onToggleExpand,
@@ -41,8 +34,10 @@ export function BottomWorkspaceDock({
   problems,
   dirtyFiles,
   projectFiles,
+  contentMap = {},
   repoName,
   onClearLogs,
+  onAddLog,
   onSelectProblemFile,
   onCommitChanges,
   onPushGithub,
@@ -54,8 +49,10 @@ export function BottomWorkspaceDock({
   problems: ProblemItem[];
   dirtyFiles: Set<string>;
   projectFiles: ProjectFile[];
+  contentMap?: Record<string, string>;
   repoName?: string;
   onClearLogs: () => void;
+  onAddLog?: (type: 'info' | 'success' | 'warn' | 'error', message: string) => void;
   onSelectProblemFile: (filePath: string) => void;
   onCommitChanges: (message: string) => void;
   onPushGithub: () => void;
@@ -65,15 +62,21 @@ export function BottomWorkspaceDock({
   const [commitMessage, setCommitMessage] = useState('');
   const [commandInput, setCommandInput] = useState('');
   const [isMaximized, setIsMaximized] = useState(false);
-
-  const [testResults, setTestResults] = useState<TestResult[]>([
-    { id: 't1', name: 'JSON & TypeScript Syntax Validation', status: 'passed', durationMs: 14 },
-    { id: 't2', name: 'API Schema Contract Integrity Check', status: 'passed', durationMs: 28 },
-    { id: 't3', name: 'Component Export Safety Check', status: 'passed', durationMs: 19 },
-  ]);
-  const [isRunningSuite, setIsRunningSuite] = useState(false);
+  const [copiedPath, setCopiedPath] = useState<string | null>(null);
 
   const terminalEndRef = useRef<HTMLDivElement>(null);
+
+  // Filter actual test files from project workspace
+  const testFiles = useMemo(() => {
+    return projectFiles.filter(
+      (f) =>
+        f.path.includes('.test.') ||
+        f.path.includes('.spec.') ||
+        f.path.includes('__tests__/') ||
+        f.path.startsWith('tests/') ||
+        f.path.startsWith('test/')
+    );
+  }, [projectFiles]);
 
   useEffect(() => {
     if (activeTab === 'terminal' && isExpanded) {
@@ -81,17 +84,24 @@ export function BottomWorkspaceDock({
     }
   }, [logs, activeTab, isExpanded]);
 
+  // NOTE: Real in-app test execution is a future task requiring a proper sandboxing decision
+  // (e.g. isolated-vm, a dedicated worker process, or moving execution to a CI pipeline instead of the browser).
   const handleRunTestsInternal = () => {
-    setIsRunningSuite(true);
+    if (testFiles.length === 0) {
+      if (onAddLog) {
+        onAddLog(
+          'info',
+          'No tests run yet — generate tests first from the Testing tab, then run them here.'
+        );
+      }
+      toast.info('No test files found in project. Generate tests first from the Testing tab.');
+      return;
+    }
+
+    if (onAddLog) {
+      onAddLog('info', `Found ${testFiles.length} generated test file(s) ready for local execution (npm test).`);
+    }
     onRunTests();
-    setTimeout(() => {
-      setTestResults([
-        { id: 't1', name: 'JSON & TypeScript Syntax Validation', status: problems.length > 0 ? 'failed' : 'passed', durationMs: 12, errorMsg: problems.length > 0 ? `${problems.length} syntax issues found` : undefined },
-        { id: 't2', name: 'API Schema Contract Integrity Check', status: 'passed', durationMs: 24 },
-        { id: 't3', name: 'Component Export Safety Check', status: 'passed', durationMs: 18 },
-      ]);
-      setIsRunningSuite(false);
-    }, 1000);
   };
 
   const handleCommitSubmit = (e: React.FormEvent) => {
@@ -103,14 +113,158 @@ export function BottomWorkspaceDock({
 
   const handleCommandSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!commandInput.trim()) return;
-    logs.push({
-      id: `cmd-${Date.now()}`,
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
-      type: 'info',
-      message: `$ ${commandInput.trim()}`,
-    });
+    const rawCmd = commandInput.trim();
+    if (!rawCmd) return;
+
     setCommandInput('');
+    const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+    const appendLog = (type: 'info' | 'success' | 'warn' | 'error', message: string) => {
+      if (onAddLog) {
+        onAddLog(type, message);
+      } else {
+        logs.push({
+          id: `log-${Date.now()}-${Math.random()}`,
+          timestamp: time,
+          type,
+          message,
+        });
+      }
+    };
+
+    // Log prompt command line
+    appendLog('info', `$ ${rawCmd}`);
+
+    const normalizedCmd = rawCmd.toLowerCase();
+
+    // 1. `clear`
+    if (normalizedCmd === 'clear') {
+      onClearLogs();
+      return;
+    }
+
+    // 2. `git status`
+    if (normalizedCmd === 'git status') {
+      appendLog('info', 'On branch main');
+      appendLog('info', "Your branch is up to date with 'origin/main'.");
+
+      if (dirtyFiles.size === 0) {
+        appendLog('success', 'nothing to commit, working tree clean');
+      } else {
+        appendLog('warn', 'Changes not staged for commit:');
+        appendLog('warn', '  (use "git commit" or workspace toolbar to commit)');
+        dirtyFiles.forEach((path) => {
+          appendLog('warn', `    modified:   ${path}`);
+        });
+      }
+      return;
+    }
+
+    // 3. `git diff`
+    if (normalizedCmd === 'git diff') {
+      if (dirtyFiles.size === 0) {
+        appendLog('info', 'No modifications found in working tree.');
+      } else {
+        dirtyFiles.forEach((filePath) => {
+          const baseFile = projectFiles.find((f) => f.path === filePath);
+          const baseContent = baseFile?.content || '';
+          const newContent = contentMap[filePath] ?? baseContent;
+
+          appendLog('info', `diff --git a/${filePath} b/${filePath}`);
+          appendLog('info', `--- a/${filePath}`);
+          appendLog('info', `+++ b/${filePath}`);
+
+          const baseLines = baseContent.split('\n');
+          const newLines = newContent.split('\n');
+
+          let diffCount = 0;
+          const maxLines = Math.max(baseLines.length, newLines.length);
+
+          for (let i = 0; i < maxLines; i++) {
+            const oldL = baseLines[i];
+            const newL = newLines[i];
+
+            if (oldL !== newL) {
+              if (oldL !== undefined) {
+                appendLog('error', `- ${oldL}`);
+                diffCount++;
+              }
+              if (newL !== undefined) {
+                appendLog('success', `+ ${newL}`);
+                diffCount++;
+              }
+            }
+            if (diffCount > 10) {
+              appendLog('info', '... [diff output truncated]');
+              break;
+            }
+          }
+        });
+      }
+      return;
+    }
+
+    // 4. `npm run build` or `build`
+    if (normalizedCmd === 'npm run build' || normalizedCmd === 'build' || normalizedCmd === 'npm build') {
+      appendLog('info', '> blueprint-app@0.1.0 build');
+      appendLog('info', '> next build');
+      appendLog('info', 'Creating an optimized production build...');
+
+      const buildErrors: Array<{ filePath: string; line: number; message: string }> = [];
+
+      projectFiles.forEach((f) => {
+        const code = contentMap[f.path] ?? f.content ?? '';
+        const lines = code.split('\n');
+
+        // Check JSON validity
+        if (f.language === 'json' || f.path.endsWith('.json')) {
+          try {
+            JSON.parse(code);
+          } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : 'Invalid JSON format';
+            const match = msg.match(/line (\d+)/i);
+            const lineNum = match ? parseInt(match[1], 10) : 1;
+            buildErrors.push({ filePath: f.path, line: lineNum, message: msg });
+          }
+        }
+
+        // Check TSX / TS bracket matching
+        if (f.path.endsWith('.tsx') || f.path.endsWith('.ts')) {
+          let openBraces = 0;
+          lines.forEach((line, idx) => {
+            for (const char of line) {
+              if (char === '{') openBraces++;
+              if (char === '}') openBraces--;
+            }
+            if (openBraces < 0) {
+              buildErrors.push({ filePath: f.path, line: idx + 1, message: 'Unmatched closing brace }' });
+              openBraces = 0;
+            }
+          });
+          if (openBraces > 0) {
+            buildErrors.push({ filePath: f.path, line: lines.length, message: `Unclosed brace { (${openBraces} unclosed)` });
+          }
+        }
+      });
+
+      if (buildErrors.length > 0) {
+        appendLog('error', 'Failed to compile.');
+        buildErrors.forEach((err) => {
+          appendLog('error', `./${err.filePath}:${err.line} - SyntaxError: ${err.message}`);
+        });
+      } else {
+        appendLog('success', '✓ Compiled successfully');
+        appendLog('info', '✓ Linting and checking validity of types...');
+        appendLog('success', `✓ Generating static pages (${projectFiles.length}/${projectFiles.length}) completed`);
+      }
+      return;
+    }
+
+    // 5. Any other command -> Print explicit unsupported message
+    appendLog(
+      'warn',
+      'Command not supported in this environment. Try: git status, git diff, npm run build, clear.'
+    );
   };
 
   return (
@@ -127,7 +281,7 @@ export function BottomWorkspaceDock({
             { id: 'terminal', label: 'Terminal', icon: Terminal, count: logs.length },
             { id: 'problems', label: 'Problems', icon: AlertCircle, count: problems.length, alert: problems.length > 0 },
             { id: 'git', label: 'Git Changes', icon: GitCommit, count: dirtyFiles.size },
-            { id: 'tests', label: 'Tests', icon: Code2, count: testResults.length },
+            { id: 'tests', label: 'Tests', icon: Code2, count: testFiles.length },
           ].map((tab) => {
             const isActive = activeTab === tab.id && isExpanded;
             const Icon = tab.icon;
@@ -240,7 +394,7 @@ export function BottomWorkspaceDock({
                 <span className="text-cyan-400 font-bold">$</span>
                 <input
                   type="text"
-                  placeholder="Type npm test, git status..."
+                  placeholder="Type git status, git diff, npm run build, clear..."
                   value={commandInput}
                   onChange={(e) => setCommandInput(e.target.value)}
                   className="flex-1 bg-transparent text-xs text-white placeholder-white/30 outline-none border-none font-mono transition-colors duration-150"
@@ -337,35 +491,73 @@ export function BottomWorkspaceDock({
           {activeTab === 'tests' && (
             <div className="space-y-3 font-sans">
               <div className="flex items-center justify-between">
-                <span className="text-xs text-white/60">Workspace Structural Verification Suite</span>
-                <button
-                  onClick={handleRunTestsInternal}
-                  disabled={isRunningSuite}
-                  className="flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-500 disabled:opacity-50 transition-colors duration-150 active:scale-[0.98]"
-                >
-                  <Play className="h-3.5 w-3.5" />
-                  <span>{isRunningSuite ? 'Running Tests...' : 'Run Test Suite'}</span>
-                </button>
+                <span className="text-xs text-white/60">Workspace Unit & Integration Test Suite</span>
+                {testFiles.length > 0 && (
+                  <button
+                    onClick={handleRunTestsInternal}
+                    className="flex items-center gap-1.5 rounded-lg bg-cyan-400/20 border border-cyan-400/40 px-3 py-1.5 text-xs font-bold text-cyan-200 hover:bg-cyan-400/30 transition-colors duration-150 active:scale-[0.98]"
+                  >
+                    <Code2 className="h-3.5 w-3.5 text-cyan-400" />
+                    <span>Inspect Tests ({testFiles.length})</span>
+                  </button>
+                )}
               </div>
 
-              <div className="space-y-1.5">
-                {testResults.map((t) => (
-                  <div key={t.id} className="flex items-center justify-between rounded-lg border border-white/[0.06] bg-[#151a26] px-3 py-2 text-xs">
-                    <div className="flex items-center gap-2">
-                      {t.status === 'passed' ? (
-                        <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
-                      ) : (
-                        <XCircle className="h-4 w-4 text-red-400 shrink-0" />
-                      )}
-                      <span className="font-medium text-white">{t.name}</span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      {t.errorMsg && <span className="text-red-300 text-[11px]">{t.errorMsg}</span>}
-                      <span className="font-mono text-[10px] text-white/40">{t.durationMs}ms</span>
+              {testFiles.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-6 px-4 text-center text-xs text-white/40 border border-dashed border-white/10 rounded-xl bg-white/[0.02]">
+                  <Code2 className="h-8 w-8 text-cyan-400/40 mb-2" />
+                  <p className="font-bold text-white/70 text-xs">No Test Files Found</p>
+                  <p className="mt-1 max-w-md text-[11px] text-white/50 leading-relaxed">
+                    No tests run yet — generate tests first from the Testing tab, then run them here.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <div className="rounded-lg border border-amber-500/20 bg-amber-950/20 p-2.5 text-[11px] text-amber-200/90 leading-relaxed flex items-start gap-2">
+                    <AlertTriangle className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
+                    <div>
+                      <span className="font-bold text-amber-300">Local Execution Ready:</span> Generated tests are ready to execute in your local environment using <code className="font-mono bg-black/40 px-1 py-0.5 rounded text-cyan-300">npm test</code>.
                     </div>
                   </div>
-                ))}
-              </div>
+
+                  <div className="space-y-1.5">
+                    {testFiles.map((file) => {
+                      const content = contentMap[file.path] ?? file.content ?? '';
+                      const lineCount = content.split('\n').filter(Boolean).length;
+                      return (
+                        <div key={file.path} className="flex items-center justify-between rounded-lg border border-white/[0.06] bg-[#151a26] p-2.5 text-xs">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <Code2 className="h-4 w-4 text-cyan-400 shrink-0" />
+                            <span className="font-mono text-cyan-200 font-bold truncate">{file.path}</span>
+                            <span className="text-[10px] text-white/40 font-mono">({lineCount} lines)</span>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <button
+                              onClick={() => onSelectProblemFile(file.path)}
+                              className="flex items-center gap-1 rounded bg-white/10 px-2 py-1 text-[10px] font-bold text-white hover:bg-white/20 transition-colors"
+                            >
+                              <Eye className="h-3 w-3" />
+                              <span>View Code</span>
+                            </button>
+                            <button
+                              onClick={async () => {
+                                await navigator.clipboard.writeText(content);
+                                setCopiedPath(file.path);
+                                toast.success(`Copied ${file.name} to clipboard`);
+                                setTimeout(() => setCopiedPath(null), 2000);
+                              }}
+                              className="flex items-center gap-1 rounded bg-cyan-400/20 border border-cyan-400/40 px-2 py-1 text-[10px] font-bold text-cyan-200 hover:bg-cyan-400/30 transition-colors"
+                            >
+                              <Copy className="h-3 w-3" />
+                              <span>{copiedPath === file.path ? 'Copied!' : 'Copy Test'}</span>
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>

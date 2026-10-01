@@ -30,22 +30,7 @@ export function ChatTemplate({ title }: { title: string }) {
     };
 
     setMessages((prev) => [...prev, userMsg]);
-    const userText = inputText.trim();
     setInputText('');
-
-    // Optional AI bot auto response
-    setTimeout(() => {
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: `bot-${Date.now()}`,
-          sender: 'Blueprint AI Assistant',
-          content: `Received message: "${userText}". How can I assist with this channel task?`,
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          isBot: true,
-        },
-      ]);
-    }, 1000);
   };
 
   const handleClearMessages = () => {

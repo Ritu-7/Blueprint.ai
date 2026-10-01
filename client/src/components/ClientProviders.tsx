@@ -1,6 +1,5 @@
 'use client';
 
-import '@/lib/i18n';
 import { Toaster } from 'sonner';
 
 export function ClientProviders({ children }: { children: React.ReactNode }) {
@@ -11,5 +10,3 @@ export function ClientProviders({ children }: { children: React.ReactNode }) {
     </>
   );
 }
-
-

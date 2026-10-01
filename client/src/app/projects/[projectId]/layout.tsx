@@ -1,10 +1,39 @@
 'use client';
 
 import { useState } from 'react';
+import { PanelGroup, Panel, PanelResizeHandle } from 'react-resizable-panels';
 import { ProjectProvider, useProject } from '@/components/workspace/ProjectContext';
 import { ProjectSidebar } from '@/components/workspace/ProjectSidebar';
 import { ProjectHeader } from '@/components/workspace/ProjectHeader';
 import { WorkspaceLoadingState, WorkspaceErrorState } from '@/components/workspace/WorkspaceStates';
+import { cn } from '@/utils/utils';
+
+function CustomResizeHandle({
+  direction = 'horizontal',
+  className = '',
+}: {
+  direction?: 'horizontal' | 'vertical';
+  className?: string;
+}) {
+  return (
+    <PanelResizeHandle
+      className={cn(
+        'group relative flex items-center justify-center transition-colors duration-150 outline-none select-none z-30 shrink-0',
+        direction === 'horizontal'
+          ? 'w-1.5 hover:w-2 hover:bg-cyan-400/40 cursor-col-resize border-x border-white/[0.04] bg-[#05070a]'
+          : 'h-1.5 hover:h-2 hover:bg-cyan-400/40 cursor-row-resize border-y border-white/[0.04] bg-[#05070a]',
+        className
+      )}
+    >
+      <div
+        className={cn(
+          'bg-white/20 group-hover:bg-cyan-400 transition-colors duration-150 rounded-full',
+          direction === 'horizontal' ? 'w-0.5 h-8 group-hover:h-12' : 'h-0.5 w-8 group-hover:w-12'
+        )}
+      />
+    </PanelResizeHandle>
+  );
+}
 
 function WorkspaceLayoutInner({
   projectId,
@@ -38,17 +67,42 @@ function WorkspaceLayoutInner({
 
   return (
     <div className="flex h-screen overflow-hidden bg-[#05070a] text-white">
-      <ProjectSidebar
-        projectId={projectId}
-        isMobileOpen={isMobileOpen}
-        onMobileClose={() => setIsMobileOpen(false)}
-      />
-      <div className="flex flex-1 flex-col min-w-0 min-h-0">
-        <ProjectHeader
+      {/* Desktop Resizable Layout */}
+      <div className="hidden md:flex h-full w-full">
+        <PanelGroup direction="horizontal" className="h-full w-full">
+          <Panel defaultSize={16} minSize={10} maxSize={28}>
+            <ProjectSidebar
+              projectId={projectId}
+              isMobileOpen={false}
+            />
+          </Panel>
+          <CustomResizeHandle direction="horizontal" />
+          <Panel defaultSize={84} minSize={60}>
+            <div className="flex flex-1 flex-col h-full min-w-0 min-h-0">
+              <ProjectHeader
+                projectId={projectId}
+                onMobileMenuToggle={() => setIsMobileOpen(true)}
+              />
+              <main className="flex-1 overflow-y-auto min-h-0 bg-[#05070a]">{children}</main>
+            </div>
+          </Panel>
+        </PanelGroup>
+      </div>
+
+      {/* Mobile Drawer Layout */}
+      <div className="flex md:hidden h-full w-full flex-col">
+        <ProjectSidebar
           projectId={projectId}
-          onMobileMenuToggle={() => setIsMobileOpen(true)}
+          isMobileOpen={isMobileOpen}
+          onMobileClose={() => setIsMobileOpen(false)}
         />
-        <main className="flex-1 overflow-y-auto min-h-0 bg-[#05070a]">{children}</main>
+        <div className="flex flex-1 flex-col min-w-0 min-h-0">
+          <ProjectHeader
+            projectId={projectId}
+            onMobileMenuToggle={() => setIsMobileOpen(true)}
+          />
+          <main className="flex-1 overflow-y-auto min-h-0 bg-[#05070a]">{children}</main>
+        </div>
       </div>
     </div>
   );

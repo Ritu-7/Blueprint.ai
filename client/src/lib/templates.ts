@@ -119,7 +119,6 @@ const kindKeywords: Record<TemplateKind, WeightedKeyword[]> = {
 
 export function detectTemplateKind(prompt: string): TemplateKind {
   const text = prompt.toLowerCase();
-
   const kinds = Object.keys(kindKeywords) as TemplateKind[];
   let bestKind: TemplateKind = 'todo';
   let bestScore = 0;
@@ -155,170 +154,6 @@ function titleFromPrompt(prompt: string, kind: TemplateKind) {
     .join(' ');
 }
 
-const pageShell = (title: string, body: string) => `'use client';
-
-import { Activity, ArrowUpRight, Plus, Search, Sparkles } from 'lucide-react';
-
-const stats = [
-  { label: 'Automations', value: '18' },
-  { label: 'Conversion', value: '94%' },
-  { label: 'Latency', value: '24ms' },
-];
-
-export default function Page() {
-  return (
-    <main className="min-h-screen bg-[#05070a] p-6 text-white">
-      <section className="mx-auto max-w-6xl space-y-6">
-        <header className="rounded-2xl border border-white/10 bg-white/[0.04] p-6 shadow-2xl">
-          <div className="mb-5 flex items-center justify-between gap-4">
-            <div className="inline-flex items-center gap-2 rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-1 text-xs font-bold uppercase tracking-widest text-cyan-200">
-              <Sparkles className="h-3.5 w-3.5" />
-              AI Generated
-            </div>
-            <button className="inline-flex items-center gap-2 rounded-xl bg-cyan-400 px-4 py-2 text-sm font-black text-[#05070a]">
-              Launch
-              <ArrowUpRight className="h-4 w-4" />
-            </button>
-          </div>
-          <h1 className="text-4xl font-black tracking-tight">${title}</h1>
-          <p className="mt-3 max-w-2xl text-sm leading-6 text-white/55">
-            Generated production-ready interface with responsive layouts, data surfaces, and workflow actions.  
-          </p>
-        </header>
-
-        <div className="grid gap-4 md:grid-cols-3">
-          {stats.map((stat) => (
-            <article key={stat.label} className="rounded-2xl border border-cyan-400/15 bg-white/[0.035] p-5">   
-              <p className="text-xs font-bold uppercase tracking-[0.22em] text-white/35">{stat.label}</p>       
-              <strong className="mt-3 block text-3xl font-black">{stat.value}</strong>
-            </article>
-          ))}
-        </div>
-
-${body}
-      </section>
-    </main>
-  );
-}`;
-
-function schemaFor(kind: TemplateKind) {
-  const schemas: Record<TemplateKind, string> = {
-    todo: `CREATE TABLE todos (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  title TEXT NOT NULL,
-  notes TEXT,
-  completed BOOLEAN NOT NULL DEFAULT false,
-  priority TEXT NOT NULL DEFAULT 'medium',
-  due_date DATE,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-
-CREATE INDEX todos_completed_idx ON todos (completed);
-CREATE INDEX todos_due_date_idx ON todos (due_date);`,
-    ecommerce: `CREATE TABLE products (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  name TEXT NOT NULL,
-  slug TEXT UNIQUE NOT NULL,
-  price NUMERIC(10, 2) NOT NULL,
-  inventory INTEGER NOT NULL DEFAULT 0,
-  image_url TEXT,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-
-CREATE TABLE carts (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id TEXT NOT NULL,
-  product_id UUID REFERENCES products(id),
-  quantity INTEGER NOT NULL DEFAULT 1
-);`,
-    dashboard: `CREATE TABLE metrics (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  label TEXT NOT NULL,
-  value NUMERIC NOT NULL,
-  change_percent NUMERIC NOT NULL DEFAULT 0,
-  captured_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-
-CREATE TABLE reports (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  name TEXT NOT NULL,
-  status TEXT NOT NULL DEFAULT 'draft',
-  payload JSONB NOT NULL DEFAULT '{}'::jsonb
-);`,
-    portfolio: `CREATE TABLE projects (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  title TEXT NOT NULL,
-  client TEXT,
-  summary TEXT NOT NULL,
-  role TEXT NOT NULL,
-  featured BOOLEAN NOT NULL DEFAULT false,
-  published_at DATE
-);
-
-CREATE TABLE inquiries (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  name TEXT NOT NULL,
-  email TEXT NOT NULL,
-  message TEXT NOT NULL,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);`,
-    chat: `CREATE TABLE conversations (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  title TEXT NOT NULL,
-  status TEXT NOT NULL DEFAULT 'open',
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-
-CREATE TABLE messages (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  conversation_id UUID REFERENCES conversations(id),
-  sender TEXT NOT NULL,
-  body TEXT NOT NULL,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);`,
-    crm: `CREATE TABLE leads (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  company TEXT NOT NULL,
-  contact_name TEXT NOT NULL,
-  email TEXT,
-  stage TEXT NOT NULL DEFAULT 'qualified',
-  deal_value NUMERIC(12, 2) NOT NULL DEFAULT 0,
-  next_step TEXT,
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-
-CREATE INDEX leads_stage_idx ON leads (stage);`,
-  };
-
-  return schemas[kind];
-}
-
-function apiFor(kind: TemplateKind) {
-  const resource: Record<TemplateKind, string> = {
-    todo: 'todos',
-    ecommerce: 'products',
-    dashboard: 'metrics',
-    portfolio: 'projects',
-    chat: 'messages',
-    crm: 'leads',
-  };
-
-  const item = resource[kind].replace(/s$/, '');
-
-  return `GET    /api/${resource[kind]}          List ${resource[kind]}
-POST   /api/${resource[kind]}          Create ${item}
-GET    /api/${resource[kind]}/:id      Fetch ${item} by id
-PATCH  /api/${resource[kind]}/:id      Update ${item}
-DELETE /api/${resource[kind]}/:id      Delete ${item}
-
-Response shape:
-{
-  "success": true,
-  "data": {},
-  "meta": { "generatedBy": "Blueprint.ai" }
-}`;
-}
-
 function slugify(text: string) {
   return text
     .toLowerCase()
@@ -326,324 +161,312 @@ function slugify(text: string) {
     .replace(/(^-|-$)/g, '');
 }
 
-function filesFor(kind: TemplateKind, title: string, schema: string, api: string): ProjectFile[] {
-  const componentName: Record<TemplateKind, string> = {
-    todo: 'TodoList',
-    ecommerce: 'ProductGrid',
-    dashboard: 'AnalyticsPanel',
-    portfolio: 'ProjectShowcase',
-    chat: 'ConversationView',
-    crm: 'PipelineBoard',
-  };
+// ─── Dynamic Prompt Domain Analyzer ───
+interface DomainItem {
+  id: string;
+  title: string;
+  subtitle: string;
+  category: string;
+  badge: string;
+  detail: string;
+  metric: string;
+}
 
-  const featureComponentName: Record<TemplateKind, string> = {
-    todo: 'TaskFilters',
-    ecommerce: 'CartSummary',
-    dashboard: 'MetricTrend',
-    portfolio: 'ContactForm',
-    chat: 'MessageComposer',
-    crm: 'DealCard',
-  };
+function analyzePromptDomain(prompt: string, title: string) {
+  const p = prompt.toLowerCase();
 
-  const featureComponentContent: Record<TemplateKind, string> = {
-    todo: `'use client';
+  let domainName = 'Custom App';
+  let categories: string[] = ['All', 'Featured', 'Active', 'Archived'];
+  let items: DomainItem[] = [];
 
-import { Search } from 'lucide-react';
+  if (p.includes('real estate') || p.includes('property') || p.includes('house') || p.includes('rental') || p.includes('home')) {
+    domainName = 'Real Estate';
+    categories = ['All', 'Villas', 'Penthouses', 'Apartments', 'Estates'];
+    items = [
+      { id: '1', title: 'Oceanview Luxury Villa', subtitle: 'Miami Beach, FL', category: 'Villas', badge: '$1,250,000', detail: '4 Beds • 3 Baths • 3,400 sqft', metric: '4.9 ★' },
+      { id: '2', title: 'Modern Skyline Penthouse', subtitle: 'New York, NY', category: 'Penthouses', badge: '$2,100,000', detail: '3 Beds • 2.5 Baths • 2,800 sqft', metric: '4.8 ★' },
+      { id: '3', title: 'Suburban Family Estate', subtitle: 'Austin, TX', category: 'Estates', badge: '$680,000', detail: '4 Beds • 3 Baths • 2,900 sqft', metric: '5.0 ★' },
+      { id: '4', title: 'Downtown Glass Loft', subtitle: 'Chicago, IL', category: 'Apartments', badge: '$540,000', detail: '2 Beds • 2 Baths • 1,600 sqft', metric: '4.7 ★' },
+    ];
+  } else if (p.includes('recipe') || p.includes('food') || p.includes('cooking') || p.includes('meal') || p.includes('restaurant')) {
+    domainName = 'Culinary';
+    categories = ['All', 'Healthy', 'Italian', 'Quick Meals', 'Desserts'];
+    items = [
+      { id: '1', title: 'Avocado & Salmon Poke Bowl', subtitle: 'Fresh Pacific salmon, quinoa, avocado', category: 'Healthy', badge: '15 min', detail: '420 kcal • High Protein', metric: '4.9 ★' },
+      { id: '2', title: 'Truffle Mushroom Cream Pasta', subtitle: 'Handmade fettuccine with wild truffle', category: 'Italian', badge: '25 min', detail: '680 kcal • Vegetarian', metric: '4.8 ★' },
+      { id: '3', title: 'Matcha Chia Seed Pudding', subtitle: 'Organic green tea, chia, almond milk', category: 'Desserts', badge: '10 min', detail: '210 kcal • Vegan', metric: '4.7 ★' },
+    ];
+  } else if (p.includes('health') || p.includes('doctor') || p.includes('medical') || p.includes('patient') || p.includes('clinic')) {
+    domainName = 'Healthcare';
+    categories = ['All', 'Cardiology', 'Neurology', 'Pediatrics', 'Dermatology'];
+    items = [
+      { id: '1', title: 'Dr. Sarah Jenkins', subtitle: 'Chief of Cardiology', category: 'Cardiology', badge: 'Available Today', detail: '14+ Yrs Exp • 4.9 Rating', metric: '2:30 PM' },
+      { id: '2', title: 'Dr. Michael Chen', subtitle: 'Neurology Specialist', category: 'Neurology', badge: 'Available Tomorrow', detail: '10+ Yrs Exp • 4.8 Rating', metric: '10:00 AM' },
+      { id: '3', title: 'Dr. Elena Rostova', subtitle: 'Pediatric Care Lead', category: 'Pediatrics', badge: 'Available Thu', detail: '12+ Yrs Exp • 5.0 Rating', metric: '11:15 AM' },
+    ];
+  } else if (p.includes('fitness') || p.includes('gym') || p.includes('workout') || p.includes('exercise')) {
+    domainName = 'Fitness';
+    categories = ['All', 'HIIT', 'Strength', 'Cardio', 'Flexibility'];
+    items = [
+      { id: '1', title: 'Full Body HIIT Burn', subtitle: 'High intensity interval training', category: 'HIIT', badge: '45 mins', detail: '520 kcal • 8 Exercises', metric: 'High' },
+      { id: '2', title: 'Core & Stability Session', subtitle: 'Abs, obliques, and lower back strength', category: 'Strength', badge: '30 mins', detail: '280 kcal • 6 Exercises', metric: 'Medium' },
+      { id: '3', title: 'Power Lifting Routine', subtitle: 'Squat, bench press, deadlift focus', category: 'Strength', badge: '60 mins', detail: '640 kcal • 5 Exercises', metric: 'High' },
+    ];
+  } else if (p.includes('crypto') || p.includes('finance') || p.includes('wallet') || p.includes('stock') || p.includes('trading')) {
+    domainName = 'Finance';
+    categories = ['All', 'Layer 1', 'DeFi', 'NFTs', 'Staking'];
+    items = [
+      { id: '1', title: 'Ethereum (ETH)', subtitle: 'Smart contract platform', category: 'Layer 1', badge: '$3,480.20', detail: 'Volume: $18.4B • Staked: 28%', metric: '+4.2%' },
+      { id: '2', title: 'Bitcoin (BTC)', subtitle: 'Digital store of value', category: 'Layer 1', badge: '$64,250.00', detail: 'Volume: $42.1B • Market Cap: $1.2T', metric: '+2.8%' },
+      { id: '3', title: 'Solana (SOL)', subtitle: 'High throughput blockchain', category: 'Layer 1', badge: '$148.50', detail: 'Volume: $4.2B • TPS: 2,400', metric: '-1.1%' },
+    ];
+  } else if (p.includes('job') || p.includes('career') || p.includes('hiring') || p.includes('recruit')) {
+    domainName = 'Job Network';
+    categories = ['All', 'Engineering', 'Design', 'Product', 'DevOps'];
+    items = [
+      { id: '1', title: 'Senior Full-Stack Engineer', subtitle: 'Vercel Labs • San Francisco, CA', category: 'Engineering', badge: '$160k - $200k', detail: 'Next.js, TypeScript, PostgreSQL', metric: 'Remote' },
+      { id: '2', title: 'AI Product Designer', subtitle: 'OpenAI • San Francisco, CA', category: 'Design', badge: '$150k - $190k', detail: 'Figma, Design Systems, Prototyping', metric: 'Hybrid' },
+      { id: '3', title: 'Lead DevOps Specialist', subtitle: 'Stripe • New York, NY', category: 'DevOps', badge: '$175k - $210k', detail: 'Kubernetes, AWS, Terraform', metric: 'Remote' },
+    ];
+  } else {
+    // General Dynamic App
+    domainName = title;
+    categories = ['All', 'Active', 'High Priority', 'Completed'];
+    items = [
+      { id: '1', title: `${title} Primary Module`, subtitle: `Configured workflow for ${prompt.slice(0, 40)}`, category: 'Active', badge: 'High Priority', detail: 'Automated workflow engine enabled', metric: 'Active' },
+      { id: '2', title: 'Data Surface & Analytics', subtitle: 'Real-time telemetry and reporting channel', category: 'Active', badge: 'Operational', detail: 'Latency: 24ms • 99.9% Uptime', metric: 'Live' },
+      { id: '3', title: 'Integration Service', subtitle: 'External REST & GraphQL API connectors', category: 'High Priority', badge: 'Connected', detail: 'Synced with Supabase & PostgreSQL', metric: 'Ready' },
+    ];
+  }
 
-const filters = ['All', 'Active', 'Completed', 'High Priority'];
-
-export function TaskFilters({
-  active = 'All',
-  onFilter,
-}: {
-  active?: string;
-  onFilter?: (filter: string) => void;
-}) {
-  return (
-    <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-      <div className="relative flex-1">
-        <Search className="absolute left-3 top-2.5 h-4 w-4 text-white/30" />
-        <input
-          type="text"
-          placeholder="Search tasks…"
-          className="h-9 w-full rounded-lg border border-white/[0.06] bg-white/[0.04] pl-9 pr-3 text-sm text-white placeholder-white/30 focus:border-cyan-400 focus:outline-none"
-        />
-      </div>
-      <div className="flex gap-2">
-        {filters.map((f) => (
-          <button
-            key={f}
-            onClick={() => onFilter?.(f)}
-            className={\`rounded-lg px-3 py-1.5 text-xs font-bold transition-colors \${
-              active === f
-                ? 'bg-cyan-400 text-[#05070a]'
-                : 'bg-white/[0.04] text-white/50 hover:text-white'
-            }\`}
-          >
-            {f}
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-}`,
-    ecommerce: `'use client';
-
-import { Sparkles } from 'lucide-react';
-
-export function CartSummary({
-  itemCount = 3,
-  subtotal = 247.0,
-}: {
-  itemCount?: number;
-  subtotal?: number;
-}) {
-  const shipping = subtotal > 100 ? 0 : 9.99;
-  const total = subtotal + shipping;
-
-  return (
-    <aside className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
-      <h2 className="text-sm font-black uppercase tracking-[0.2em] text-white/50">
-        Cart Summary
-      </h2>
-      <div className="mt-4 space-y-3 text-sm">
-        <div className="flex justify-between text-white/60">
-          <span>Items ({itemCount})</span>
-          <span>\${subtotal.toFixed(2)}</span>
-        </div>
-        <div className="flex justify-between text-white/60">
-          <span>Shipping</span>
-          <span>{shipping === 0 ? 'Free' : \`\$\${shipping.toFixed(2)}\`}</span>
-        </div>
-        <div className="border-t border-white/10 pt-3 flex justify-between font-black text-white">
-          <span>Total</span>
-          <span>\${total.toFixed(2)}</span>
-        </div>
-      </div>
-      <button className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-cyan-400 py-2.5 text-sm font-black text-[#05070a]">
-        <Sparkles className="h-4 w-4" />
-        Checkout
-      </button>
-    </aside>
-  );
-}`,
-    dashboard: `'use client';
-
-import { ArrowUpRight } from 'lucide-react';
-
-const dataPoints = [18, 32, 28, 45, 42, 55, 48, 62, 58, 71, 68, 76];
-const maxVal = Math.max(...dataPoints);
-
-export function MetricTrend({
-  label = 'Revenue',
-  value = '$12,482',
-  change = '+18.2%',
-}: {
-  label?: string;
-  value?: string;
-  change?: string;
-}) {
-  return (
-    <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
-      <div className="flex items-center justify-between">
-        <p className="text-xs font-bold uppercase tracking-[0.2em] text-white/40">{label}</p>
-        <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-400">
-          <ArrowUpRight className="h-3.5 w-3.5" />
-          {change}
-        </span>
-      </div>
-      <strong className="mt-2 block text-3xl font-black text-white">{value}</strong>
-      <div className="mt-4 flex items-end gap-1 h-16">
-        {dataPoints.map((dp, i) => (
-          <div
-            key={i}
-            className="flex-1 rounded-sm bg-cyan-400/30"
-            style={{ height: \`\${(dp / maxVal) * 100}%\` }}
-          />
-        ))}
-      </div>
-    </div>
-  );
-}`,
-    portfolio: `'use client';
-
-import { ArrowUpRight } from 'lucide-react';
-
-export function ContactForm() {
-  return (
-    <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-6">
-      <h2 className="text-sm font-black uppercase tracking-[0.2em] text-white/50">
-        Get In Touch
-      </h2>
-      <p className="mt-2 text-sm text-white/40">
-        Interested in working together? Drop me a message.
-      </p>
-      <form className="mt-5 space-y-4" onSubmit={(e) => e.preventDefault()}>
-        <div className="grid gap-4 md:grid-cols-2">
-          <input
-            type="text"
-            placeholder="Name"
-            className="h-10 rounded-lg border border-white/[0.06] bg-white/[0.04] px-3 text-sm text-white placeholder-white/30 focus:border-cyan-400 focus:outline-none"
-          />
-          <input
-            type="email"
-            placeholder="Email"
-            className="h-10 rounded-lg border border-white/[0.06] bg-white/[0.04] px-3 text-sm text-white placeholder-white/30 focus:border-cyan-400 focus:outline-none"
-          />
-        </div>
-        <textarea
-          rows={4}
-          placeholder="Tell me about your project…"
-          className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] p-3 text-sm text-white placeholder-white/30 focus:border-cyan-400 focus:outline-none resize-none"
-        />
-        <button
-          type="submit"
-          className="inline-flex items-center gap-2 rounded-xl bg-cyan-400 px-5 py-2.5 text-sm font-black text-[#05070a]"
-        >
-          Send Message
-          <ArrowUpRight className="h-4 w-4" />
-        </button>
-      </form>
-    </section>
-  );
-}`,
-    chat: `'use client';
-
-import { ArrowUpRight } from 'lucide-react';
-
-export function MessageComposer({
-  onSend,
-}: {
-  onSend?: (message: string) => void;
-}) {
-  return (
-    <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-      <div className="flex items-end gap-3">
-        <textarea
-          rows={2}
-          placeholder="Type a message…"
-          className="flex-1 rounded-lg border border-white/[0.06] bg-white/[0.04] p-3 text-sm text-white placeholder-white/30 focus:border-cyan-400 focus:outline-none resize-none"
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-              e.preventDefault();
-              const target = e.target as HTMLTextAreaElement;
-              if (target.value.trim()) {
-                onSend?.(target.value.trim());
-                target.value = '';
-              }
-            }
-          }}
-        />
-        <button
-          onClick={() => {}}
-          className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-cyan-400 text-[#05070a]"
-        >
-          <ArrowUpRight className="h-4 w-4" />
-        </button>
-      </div>
-      <div className="mt-3 flex gap-2 text-xs text-white/30">
-        <span className="rounded bg-white/[0.04] px-2 py-1">Markdown supported</span>
-        <span className="rounded bg-white/[0.04] px-2 py-1">Shift+Enter for new line</span>
-      </div>
-    </div>
-  );
-}`,
-    crm: `'use client';
-
-import { ArrowUpRight } from 'lucide-react';
-
-const stages: Record<string, string> = {
-  qualified: 'bg-blue-400/20 text-blue-300',
-  proposal: 'bg-amber-400/20 text-amber-300',
-  negotiation: 'bg-purple-400/20 text-purple-300',
-  'closed won': 'bg-emerald-400/20 text-emerald-300',
-};
-
-export function DealCard({
-  company = 'Acme Studio',
-  contact = 'Jane Cooper',
-  value = 24000,
-  stage = 'proposal',
-  nextStep = 'Follow-up call on Friday',
-}: {
-  company?: string;
-  contact?: string;
-  value?: number;
-  stage?: string;
-  nextStep?: string;
-}) {
-  const stageStyle = stages[stage] || 'bg-white/[0.06] text-white/50';
-
-  return (
-    <article className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
-      <div className="flex items-start justify-between">
-        <div>
-          <h3 className="font-black text-white">{company}</h3>
-          <p className="mt-1 text-xs text-white/40">{contact}</p>
-        </div>
-        <span className={\`rounded-full px-2.5 py-1 text-xs font-bold capitalize \${stageStyle}\`}>
-          {stage}
-        </span>
-      </div>
-      <strong className="mt-3 block text-2xl font-black text-white">
-        \${value.toLocaleString()}
-      </strong>
-      <div className="mt-4 flex items-center justify-between rounded-xl bg-white/[0.04] p-3">
-        <span className="text-xs text-white/50">{nextStep}</span>
-        <ArrowUpRight className="h-3.5 w-3.5 text-cyan-400" />
-      </div>
-    </article>
-  );
-}`,
-  };
-
-  const featureBody: Record<TemplateKind, string> = {
-    todo: `        <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-sm font-black uppercase tracking-[0.2em] text-white/50">Today</h2>
-            <button className="inline-flex items-center gap-2 rounded-lg bg-cyan-400 px-3 py-2 text-xs font-black text-[#05070a]"><Plus className="h-4 w-4" /> Task</button>
-          </div>
-          {['Finalize launch copy', 'Review Supabase schema', 'Ship preview mode'].map((task) => (
-            <div key={task} className="mb-3 rounded-xl border border-white/5 bg-white/[0.035] p-4 text-sm text-white/70">{task}</div>
-          ))}
-        </section>`,
-    ecommerce: `        <section className="grid gap-4 md:grid-cols-3">
-          {['Aero Keyboard', 'Glass Dock', 'Neon Headset'].map((product) => (
-            <article key={product} className="rounded-2xl border border-white/10 bg-white/[0.035] p-4">
-              <div className="mb-4 aspect-square rounded-xl bg-cyan-400/10" />
-              <h2 className="font-black">{product}</h2>
-              <p className="mt-2 text-sm text-white/45">Premium generated catalog card.</p>
-            </article>
-          ))}
-        </section>`,
-    dashboard: `        <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
-          <div className="mb-4 flex items-center gap-2 text-cyan-300"><Activity className="h-4 w-4" /> Live revenue stream</div>
-          <div className="grid h-64 place-items-center rounded-xl bg-gradient-to-br from-cyan-400/20 to-blue-500/10 text-sm text-white/55">Chart canvas ready for Recharts data</div>
-        </section>`,
-    portfolio: `        <section className="grid gap-4 md:grid-cols-2">
-          {['Brand system', 'AI product suite', 'Editorial platform'].map((project) => (
-            <article key={project} className="rounded-2xl border border-white/10 bg-white/[0.035] p-5">
-              <p className="text-xs uppercase tracking-[0.2em] text-cyan-300">Case Study</p>
-              <h2 className="mt-3 text-2xl font-black">{project}</h2>
-            </article>
-          ))}
-        </section>`,
-    chat: `        <section className="grid gap-4 md:grid-cols-[0.8fr_1.2fr]">
-          <aside className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">{['Launch team', 'Support queue', 'Design partners'].map((chat) => <div key={chat} className="mb-2 rounded-xl bg-white/[0.04] p-3 text-sm">{chat}</div>)}</aside>
-          <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4"><div className="rounded-xl bg-cyan-400/10 p-4 text-sm text-cyan-100">AI assistant drafted a reply with project context.</div></div>
-        </section>`,
-    crm: `        <section className="grid gap-4 md:grid-cols-3">
-          {['Qualified', 'Proposal', 'Closed Won'].map((stage) => (
-            <div key={stage} className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-              <h2 className="text-xs font-black uppercase tracking-[0.2em] text-white/40">{stage}</h2>
-              <div className="mt-4 rounded-xl bg-white/[0.04] p-4 text-sm text-white/70">Acme Studio - $24,000</div>
-            </div>
-          ))}
-        </section>`,
-  };
-
-  const pageCode = pageShell(title, featureBody[kind]);
   const slug = slugify(title);
+
+  // Generate dynamic app/page.tsx
+  const pageCode = `'use client';
+
+import { useState, useMemo } from 'react';
+import { Search, Sparkles, Plus, ArrowUpRight, Check, Trash2, Filter, Star, Shield, Activity } from 'lucide-react';
+
+const initialItems = ${JSON.stringify(items, null, 2)};
+const categories = ${JSON.stringify(categories, null, 2)};
+
+export default function Page() {
+  const [items, setItems] = useState(initialItems);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [activeCategory, setActiveCategory] = useState('All');
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [newItemTitle, setNewItemTitle] = useState('');
+  const [newItemCategory, setNewItemCategory] = useState(categories[1] || 'General');
+
+  const filteredItems = useMemo(() => {
+    return items.filter((item) => {
+      const matchesSearch = item.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                            item.subtitle.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesCategory = activeCategory === 'All' || item.category === activeCategory;
+      return matchesSearch && matchesCategory;
+    });
+  }, [items, searchTerm, activeCategory]);
+
+  const handleAddItem = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newItemTitle.trim()) return;
+
+    const newItem = {
+      id: String(Date.now()),
+      title: newItemTitle.trim(),
+      subtitle: 'Newly created ${domainName} record',
+      category: newItemCategory,
+      badge: 'New',
+      detail: 'Custom record generated in real time',
+      metric: 'Active',
+    };
+
+    setItems([newItem, ...items]);
+    setNewItemTitle('');
+    setIsModalOpen(false);
+  };
+
+  const handleDeleteItem = (id: string) => {
+    setItems(items.filter((item) => item.id !== id));
+  };
+
+  return (
+    <main className="min-h-screen bg-[#05070a] p-4 md:p-8 text-white font-sans">
+      <div className="mx-auto max-w-6xl space-y-6">
+        
+        {/* Header Hero Banner */}
+        <header className="rounded-2xl border border-white/10 bg-gradient-to-br from-white/[0.05] to-white/[0.02] p-6 shadow-2xl backdrop-blur-sm">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
+            <div className="inline-flex items-center gap-2 rounded-full border border-cyan-400/30 bg-cyan-400/10 px-3 py-1 text-xs font-bold uppercase tracking-widest text-cyan-200">
+              <Sparkles className="h-3.5 w-3.5 text-cyan-400" />
+              ${domainName} Platform
+            </div>
+            <button
+              onClick={() => setIsModalOpen(true)}
+              className="inline-flex items-center gap-2 rounded-xl bg-cyan-400 px-4 py-2 text-sm font-black text-[#05070a] shadow-[0_0_20px_rgba(0,243,255,0.3)] hover:bg-cyan-300 transition-all active:scale-[0.98]"
+            >
+              <Plus className="h-4 w-4" />
+              Add Record
+            </button>
+          </div>
+
+          <h1 className="text-3xl md:text-4xl font-black tracking-tight text-white">${title}</h1>
+          <p className="mt-2 max-w-2xl text-sm leading-relaxed text-white/60">
+            Tailored ${domainName.toLowerCase()} application tailored for your prompt. Filter records, search data, and manage entries live.
+          </p>
+
+          {/* Metric Stats Cards */}
+          <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div className="rounded-xl border border-cyan-400/20 bg-white/[0.03] p-4">
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/40">Total Records</p>
+              <strong className="mt-1 block text-2xl font-black text-white">{items.length}</strong>
+            </div>
+            <div className="rounded-xl border border-cyan-400/20 bg-white/[0.03] p-4">
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/40">Matching Search</p>
+              <strong className="mt-1 block text-2xl font-black text-cyan-300">{filteredItems.length}</strong>
+            </div>
+            <div className="rounded-xl border border-cyan-400/20 bg-white/[0.03] p-4">
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/40">System Status</p>
+              <strong className="mt-1 block text-2xl font-black text-emerald-400">Operational</strong>
+            </div>
+          </div>
+        </header>
+
+        {/* Search & Category Filter Controls */}
+        <section className="flex flex-col gap-4 rounded-2xl border border-white/10 bg-white/[0.025] p-4 md:flex-row md:items-center md:justify-between">
+          <div className="relative flex-1">
+            <Search className="absolute left-3.5 top-3 h-4 w-4 text-white/30" />
+            <input
+              type="text"
+              placeholder="Search ${title.toLowerCase()}..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="h-10 w-full rounded-xl border border-white/10 bg-white/[0.04] pl-10 pr-4 text-sm text-white placeholder-white/30 focus:border-cyan-400 focus:outline-none transition-colors"
+            />
+          </div>
+
+          <div className="flex flex-wrap gap-1.5">
+            {categories.map((cat: string) => (
+              <button
+                key={cat}
+                onClick={() => setActiveCategory(cat)}
+                className={\`rounded-lg px-3 py-1.5 text-xs font-bold transition-all \${
+                  activeCategory === cat
+                    ? 'bg-cyan-400 text-[#05070a] shadow-[0_0_12px_rgba(0,243,255,0.2)]'
+                    : 'bg-white/[0.04] text-white/50 hover:bg-white/10 hover:text-white'
+                }\`}
+              >
+                {cat}
+              </button>
+            ))}
+          </div>
+        </section>
+
+        {/* Dynamic Records Grid */}
+        <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-2">
+          {filteredItems.map((item) => (
+            <article
+              key={item.id}
+              className="group relative flex flex-col justify-between rounded-2xl border border-white/10 bg-white/[0.03] p-5 transition-all duration-200 hover:border-cyan-400/40 hover:bg-white/[0.045] shadow-lg"
+            >
+              <div>
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <span className="inline-block rounded-md border border-cyan-400/30 bg-cyan-400/10 px-2 py-0.5 text-[10px] font-bold text-cyan-300">
+                      {item.category}
+                    </span>
+                    <h3 className="mt-2 text-lg font-black text-white">{item.title}</h3>
+                  </div>
+                  <span className="rounded-full bg-white/10 px-2.5 py-1 text-xs font-bold text-emerald-300">
+                    {item.badge}
+                  </span>
+                </div>
+
+                <p className="mt-2 text-xs text-white/50">{item.subtitle}</p>
+                <div className="mt-4 rounded-xl bg-black/40 p-3 text-xs font-mono text-white/70">
+                  {item.detail}
+                </div>
+              </div>
+
+              <div className="mt-5 flex items-center justify-between border-t border-white/10 pt-3">
+                <span className="text-xs font-bold text-cyan-400">{item.metric}</span>
+                <button
+                  onClick={() => handleDeleteItem(item.id)}
+                  className="p-1.5 text-white/30 hover:text-red-400 transition-colors"
+                  title="Remove Item"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </div>
+            </article>
+          ))}
+
+          {filteredItems.length === 0 && (
+            <div className="col-span-full rounded-2xl border border-dashed border-white/10 py-12 text-center text-white/40">
+              <p className="text-sm font-bold">No records match your search query.</p>
+              <button
+                onClick={() => { setSearchTerm(''); setActiveCategory('All'); }}
+                className="mt-2 text-xs font-bold text-cyan-400 hover:underline"
+              >
+                Clear Filters
+              </button>
+            </div>
+          )}
+        </section>
+      </div>
+
+      {/* Add Item Modal */}
+      {isModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+          <div className="w-full max-w-md rounded-2xl border border-white/10 bg-[#0a0d14] p-6 text-white shadow-2xl">
+            <h3 className="text-lg font-black">Add New ${domainName} Record</h3>
+            <form onSubmit={handleAddItem} className="mt-4 space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-white/60 mb-1">Title</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Record title..."
+                  value={newItemTitle}
+                  onChange={(e) => setNewItemTitle(e.target.value)}
+                  className="w-full rounded-xl border border-white/10 bg-white/[0.04] p-3 text-sm text-white focus:border-cyan-400 focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-white/60 mb-1">Category</label>
+                <select
+                  value={newItemCategory}
+                  onChange={(e) => setNewItemCategory(e.target.value)}
+                  className="w-full rounded-xl border border-white/10 bg-[#151a26] p-3 text-sm text-white focus:border-cyan-400 focus:outline-none"
+                >
+                  {categories.filter(c => c !== 'All').map(c => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsModalOpen(false)}
+                  className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-xs font-bold hover:bg-white/10"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="rounded-xl bg-cyan-400 px-4 py-2 text-xs font-black text-black hover:bg-cyan-300"
+                >
+                  Save Record
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </main>
+  );
+}
+`;
 
   const globalsCss = `@tailwind base;
 @tailwind components;
@@ -660,14 +483,13 @@ body {
 
   const packageJson = JSON.stringify(
     {
-      name: slug || 'blueprint-project',
+      name: slug || 'blueprint-app',
       version: '0.1.0',
       private: true,
       scripts: {
         dev: 'next dev',
         build: 'next build',
         start: 'next start',
-        lint: 'next lint',
       },
       dependencies: {
         next: '^14.2.0',
@@ -675,143 +497,29 @@ body {
         'react-dom': '^18.3.0',
         'lucide-react': '^0.400.0',
       },
-      devDependencies: {
-        typescript: '^5.4.0',
-        '@types/node': '^20.0.0',
-        '@types/react': '^18.3.0',
-        '@types/react-dom': '^18.3.0',
-        tailwindcss: '^3.4.0',
-        postcss: '^8.4.0',
-        autoprefixer: '^10.4.0',
-      },
     },
     null,
-    2,
+    2
   );
 
-  const readme = `# ${title}
+  const schema = `CREATE TABLE ${slug.replace(/-/g, '_')}_records (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  title TEXT NOT NULL,
+  category TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'active',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);`;
 
-${kindLabels[kind]} — generated by Blueprint.ai.
+  const api = `GET    /api/${slug}    List records
+POST   /api/${slug}    Create new record`;
 
-## Getting Started
-
-\`\`\`bash
-npm install
-npm run dev
-\`\`\`
-
-Open [http://localhost:3000](http://localhost:3000) in your browser.
-
-## API Routes
-
-${api}
-
-## Database Schema
-
-The Supabase schema is in \`supabase/schema.sql\`. Apply it with:
-
-\`\`\`bash
-supabase db reset   # or paste into the Supabase SQL editor
-\`\`\`
-
-## Project Structure
-
-- \`app/\` — Next.js App Router pages and layouts
-- \`components/\` — Reusable UI components
-- \`app/api/\` — API route handlers
-- \`supabase/\` — Database schema
-- \`docs/\` — API documentation
-`;
-
-  const tailwindConfig = `/** @type {import('tailwindcss').Config} */
-module.exports = {
-  darkMode: 'class',
-  content: [
-    './app/**/*.{ts,tsx}',
-    './components/**/*.{ts,tsx}',
-  ],
-  theme: {
-    extend: {
-      colors: {
-        // Cyan accent used throughout the generated components
-        accent: '#22d3ee',
-        cyan: {
-          400: '#22d3ee',
-        },
-        background: '#05070a',
-      },
-    },
-  },
-  plugins: [],
-};`;
-
-  const postcssConfig = `module.exports = {
-  plugins: {
-    tailwindcss: {},
-    autoprefixer: {},
-  },
-};`;
-
-  const nextConfig = `/** @type {import('next').NextConfig} */
-const nextConfig = {
-  reactStrictMode: true,
-};
-
-module.exports = nextConfig;`;
-
-  // Generated files use relative imports only (no @/ aliases), so a plain
-  // standard Next.js tsconfig is sufficient.
-  const tsconfigJson = JSON.stringify(
-    {
-      compilerOptions: {
-        target: 'es5',
-        lib: ['dom', 'dom.iterable', 'esnext'],
-        allowJs: true,
-        skipLibCheck: true,
-        strict: true,
-        noEmit: true,
-        esModuleInterop: true,
-        module: 'esnext',
-        moduleResolution: 'bundler',
-        resolveJsonModule: true,
-        isolatedModules: true,
-        jsx: 'preserve',
-        incremental: true,
-        plugins: [{ name: 'next' }],
-        paths: {
-          '@/*': ['./*'],
-        },
-      },
-      include: ['next-env.d.ts', '**/*.ts', '**/*.tsx', '.next/types/**/*.ts'],
-      exclude: ['node_modules'],
-    },
-    null,
-    2,
-  );
-
-  const gitignore = `# dependencies
-node_modules
-
-# Next.js build output
-.next
-out
-
-# local env files
-.env*.local
-.env.local
-
-# misc
-.DS_Store
-*.tsbuildinfo
-`;
-
-  return [
-    { path: 'app/globals.css', name: 'globals.css', language: 'css' as const, content: globalsCss },
-    { path: 'app/page.tsx', name: 'page.tsx', language: 'tsx' as const, content: pageCode },
+  const files: ProjectFile[] = [
+    { path: 'app/globals.css', name: 'globals.css', language: 'css', content: globalsCss },
+    { path: 'app/page.tsx', name: 'page.tsx', language: 'tsx', content: pageCode },
     {
       path: 'app/layout.tsx',
       name: 'layout.tsx',
-      language: 'tsx' as const,
+      language: 'tsx',
       content: `import './globals.css';
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -822,68 +530,20 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   );
 }`,
     },
-    {
-      path: `components/${componentName[kind]}.tsx`,
-      name: `${componentName[kind]}.tsx`,
-      language: 'tsx' as const,
-      content: `export function ${componentName[kind]}() {
-  return (
-    <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
-      <h2 className="text-xl font-black">${title}</h2>
-      <p className="mt-2 text-sm text-white/50">Reusable generated feature component.</p>
-    </section>
-  );
-}`,
-    },
-    {
-      path: `components/${featureComponentName[kind]}.tsx`,
-      name: `${featureComponentName[kind]}.tsx`,
-      language: 'tsx' as const,
-      content: featureComponentContent[kind],
-    },
-    {
-      path: `app/api/${kind}/route.ts`,
-      name: 'route.ts',
-      language: 'ts' as const,
-      content: `import { NextResponse } from 'next/server';
-
-export async function GET() {
-  return NextResponse.json({ success: true, data: [] });
-}
-
-export async function POST(request: Request) {
-  const body = await request.json();
-  return NextResponse.json({ success: true, data: body }, { status: 201 });
-}`,
-    },
-    { path: 'supabase/schema.sql', name: 'schema.sql', language: 'sql' as const, content: schema },
-    { path: 'docs/api.md', name: 'api.md', language: 'md' as const, content: api },
-    { path: 'package.json', name: 'package.json', language: 'json' as const, content: packageJson },
-    { path: 'README.md', name: 'README.md', language: 'md' as const, content: readme },
-    { path: 'tailwind.config.js', name: 'tailwind.config.js', language: 'js' as const, content: tailwindConfig },
-    { path: 'postcss.config.js', name: 'postcss.config.js', language: 'js' as const, content: postcssConfig },
-    { path: 'next.config.js', name: 'next.config.js', language: 'js' as const, content: nextConfig },
-    { path: 'tsconfig.json', name: 'tsconfig.json', language: 'json' as const, content: tsconfigJson },
-    { path: '.gitignore', name: '.gitignore', language: 'md' as const, content: gitignore },
+    { path: 'supabase/schema.sql', name: 'schema.sql', language: 'sql', content: schema },
+    { path: 'package.json', name: 'package.json', language: 'json', content: packageJson },
   ];
+
+  return { title, domainName, schema, api, files };
 }
 
 function previewFor(kind: TemplateKind, title: string) {
-  const caption: Record<TemplateKind, string> = {
-    todo: 'Prioritize tasks, automate follow-ups, and keep shipping velocity visible.',
-    ecommerce: 'A conversion-ready storefront with product cards, cart logic, and merchandising blocks.',       
-    dashboard: 'Operational analytics with KPI cards, report queues, and executive visibility.',
-    portfolio: 'A polished creative portfolio with case studies, inquiry capture, and positioning.',
-    chat: 'A collaborative messaging workspace with teams, threads, and AI-assisted replies.',
-    crm: 'A sales command center with pipeline stages, lead intelligence, and next actions.',
-  };
-
   return `<main class="min-h-full bg-[#05070a] p-6 text-white">
   <section class="mx-auto max-w-6xl space-y-6">
     <div class="rounded-2xl border border-white/10 bg-white/[0.04] p-6 shadow-2xl">
-      <p class="mb-3 text-xs font-black uppercase tracking-[0.28em] text-cyan-300">AI Website Preview</p>       
+      <p class="mb-3 text-xs font-black uppercase tracking-[0.28em] text-cyan-300">AI Application Preview</p>       
       <h1 class="text-4xl font-black tracking-tight">${title}</h1>
-      <p class="mt-3 max-w-2xl text-sm leading-6 text-white/55">${caption[kind]}</p>
+      <p class="mt-3 max-w-2xl text-sm leading-6 text-white/55">Generated interactive full-stack workspace with dynamic data surfaces.</p>
     </div>
   </section>
 </main>`;
@@ -892,10 +552,9 @@ function previewFor(kind: TemplateKind, title: string) {
 export function generateProjectFromPrompt(prompt: string): GeneratedProject {
   const kind = detectTemplateKind(prompt);
   const name = titleFromPrompt(prompt, kind);
-  const schema = schemaFor(kind);
-  const api = apiFor(kind);
-  const files = filesFor(kind, name, schema, api);
-  const uiCode = files
+  const domain = analyzePromptDomain(prompt, name);
+
+  const uiCode = domain.files
     .filter((file) => file.language === 'tsx' || file.language === 'ts')
     .map((file) => `// ${file.path}\n${file.content}`)
     .join('\n\n');
@@ -903,11 +562,11 @@ export function generateProjectFromPrompt(prompt: string): GeneratedProject {
   return {
     name,
     kind,
-    description: `${kindLabels[kind]} generated from your prompt with files, schema, API docs, and live preview.`,
+    description: `Full-stack ${name} application generated specifically for: "${prompt}".`,
     preview: previewFor(kind, name),
     uiCode,
-    schema,
-    api,
-    files,
+    schema: domain.schema,
+    api: domain.api,
+    files: domain.files,
   };
 }

@@ -16,7 +16,9 @@ export interface AIMessage {
   role: 'user' | 'assistant';
   text: string;
   codeSnippet?: string;
+  modifiedFiles?: Array<{ path: string; newContent: string }>;
   timestamp: string;
+  isStreaming?: boolean;
 }
 
 export function AIEngineeringAssistant({
@@ -30,7 +32,7 @@ export function AIEngineeringAssistant({
   activeFileContent?: string;
   projectFiles: ProjectFile[];
   projectName?: string;
-  onApplyCode: (code: string) => void;
+  onApplyCode: (codeOrFiles: string | Array<{ path: string; newContent: string }>, targetPath?: string) => void;
 }) {
   const [contextScope, setContextScope] = useState<ContextScope>('file');
   const [prompt, setPrompt] = useState('');
@@ -48,10 +50,71 @@ export function AIEngineeringAssistant({
     },
   ]);
 
-  // Auto scroll to newest message
+  // Auto scroll to newest message during streaming / updates
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isThinking]);
+
+  // Streaming typewriter helper for AI responses
+  const streamMessageContent = async (
+    msgId: string,
+    fullText: string,
+    fullSnippet: string,
+    modifiedFiles: Array<{ path: string; newContent: string }>
+  ) => {
+    // 1. Stream narrative text word by word
+    const words = fullText.split(' ');
+    let accumulatedText = '';
+
+    for (let i = 0; i < words.length; i++) {
+      accumulatedText += (i === 0 ? '' : ' ') + words[i];
+      const snapshot = accumulatedText;
+      setMessages((prev) =>
+        prev.map((m) => (m.id === msgId ? { ...m, text: snapshot, isStreaming: true } : m))
+      );
+      await new Promise((r) => setTimeout(r, 18));
+    }
+
+    // 2. Stream code snippet line by line
+    if (fullSnippet) {
+      const lines = fullSnippet.split('\n');
+      let accumulatedSnippet = '';
+      const lineDelay = Math.max(8, Math.min(30, Math.floor(600 / lines.length)));
+
+      for (let i = 0; i < lines.length; i++) {
+        accumulatedSnippet += (i === 0 ? '' : '\n') + lines[i];
+        const snippetSnapshot = accumulatedSnippet;
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === msgId
+              ? {
+                  ...m,
+                  codeSnippet: snippetSnapshot,
+                  modifiedFiles,
+                  isStreaming: true,
+                }
+              : m
+          )
+        );
+        await new Promise((r) => setTimeout(r, lineDelay));
+      }
+    }
+
+    // 3. Mark streaming completed
+    setMessages((prev) =>
+      prev.map((m) =>
+        m.id === msgId
+          ? {
+              ...m,
+              text: fullText,
+              codeSnippet: fullSnippet,
+              modifiedFiles,
+              isStreaming: false,
+            }
+          : m
+      )
+    );
+  };
 
   const handleSend = async (overridePrompt?: string) => {
     const textToSend = overridePrompt || prompt;
@@ -64,48 +127,75 @@ export function AIEngineeringAssistant({
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     };
 
-    setMessages((prev) => [...prev, userMsg]);
+    const aiMsgId = `ai-${Date.now()}`;
+    const initialAiMsg: AIMessage = {
+      id: aiMsgId,
+      role: 'assistant',
+      text: '',
+      codeSnippet: '',
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      isStreaming: true,
+    };
+
+    setMessages((prev) => [...prev, userMsg, initialAiMsg]);
     if (!overridePrompt) setPrompt('');
     setIsThinking(true);
 
     try {
-      const res = await fetch('/api/generate', {
+      const otherFilesSummary = projectFiles
+        .filter((f) => f.path !== activeFile?.path)
+        .map((f) => f.path)
+        .join(', ');
+
+      const res = await fetch('/api/chat-edit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          prompt: textToSend,
-          contextScope,
-          activeFilePath: activeFile?.path,
-          activeContent: activeFileContent,
-          fileCount: projectFiles.length,
+          currentFile: {
+            path: activeFile?.path || 'app/page.tsx',
+            content: activeFileContent ?? activeFile?.content ?? '',
+          },
+          otherFilesSummary,
+          instruction: textToSend,
         }),
       });
 
-      const data = await res.json();
-      const payload = data.data || data;
+      const responseJson = await res.json();
+      const rawData = responseJson?.data;
+      const modifiedFiles: Array<{ path: string; newContent: string }> = Array.isArray(rawData?.modifiedFiles)
+        ? rawData.modifiedFiles
+        : Array.isArray(rawData)
+        ? rawData
+        : [];
 
-      const aiMsg: AIMessage = {
-        id: `ai-${Date.now()}`,
-        role: 'assistant',
-        text: payload.uiCode
-          ? `Generated update for **${activeFile?.name || 'component'}**.`
-          : payload.description || 'Here is the engineered code based on your request.',
-        codeSnippet: payload.uiCode || payload.code || (typeof payload === 'string' ? payload : undefined),
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      };
+      let primarySnippet = '';
+      let targetPath = activeFile?.path || 'app/page.tsx';
 
-      setMessages((prev) => [...prev, aiMsg]);
+      if (modifiedFiles.length > 0) {
+        primarySnippet = modifiedFiles[0].newContent;
+        targetPath = modifiedFiles[0].path;
+      }
+
+      const fileName = targetPath.split('/').pop() || targetPath;
+      const responseNarrative = modifiedFiles.length > 0
+        ? `Prepared targeted code edit for **${fileName}**.`
+        : 'Processed your edit request.';
+
+      // Trigger typewriter streaming display
+      await streamMessageContent(aiMsgId, responseNarrative, primarySnippet, modifiedFiles);
     } catch (err: unknown) {
       const errorText = err instanceof Error ? err.message : 'AI generation error';
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: `err-${Date.now()}`,
-          role: 'assistant',
-          text: `I encountered an issue processing your request: ${errorText}`,
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        },
-      ]);
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === aiMsgId
+            ? {
+                ...m,
+                text: `I encountered an issue processing your request: ${errorText}`,
+                isStreaming: false,
+              }
+            : m
+        )
+      );
     } finally {
       setIsThinking(false);
     }
@@ -120,13 +210,17 @@ export function AIEngineeringAssistant({
     } else if (type === 'refactor') {
       handleSend(`Refactor and optimize performance for ${activeFile.path}`);
     } else if (type === 'tests') {
-      handleSend(`Generate comprehensive Jest / Vitest unit tests for ${activeFile.path}`);
+      handleSend(`Generate comprehensive unit tests for ${activeFile.path}`);
     }
   };
 
   const handleApply = (msg: AIMessage) => {
-    if (msg.codeSnippet) {
-      onApplyCode(msg.codeSnippet);
+    if (msg.modifiedFiles && msg.modifiedFiles.length > 0) {
+      onApplyCode(msg.modifiedFiles);
+      setAppliedMessageId(msg.id);
+      setTimeout(() => setAppliedMessageId(null), 2000);
+    } else if (msg.codeSnippet && activeFile) {
+      onApplyCode(msg.codeSnippet, activeFile.path);
       setAppliedMessageId(msg.id);
       setTimeout(() => setAppliedMessageId(null), 2000);
     }
@@ -217,14 +311,30 @@ export function AIEngineeringAssistant({
               </div>
 
               {/* Markdown Content Rendering */}
-              <MarkdownRenderer content={msg.text} />
+              {msg.text ? (
+                <div className="relative">
+                  <MarkdownRenderer content={msg.text} />
+                  {msg.isStreaming && !msg.codeSnippet && (
+                    <span className="inline-block h-3 w-1.5 ml-0.5 bg-cyan-400 animate-pulse" />
+                  )}
+                </div>
+              ) : msg.isStreaming ? (
+                <div className="flex items-center gap-1.5 text-cyan-300 font-mono text-[11px]">
+                  <Sparkles className="h-3.5 w-3.5 animate-spin text-cyan-400" />
+                  <span>Thinking...</span>
+                </div>
+              ) : null}
 
               {/* Code Snippet Box with Apply Button */}
-              {msg.codeSnippet && (
+              {(msg.codeSnippet || (msg.modifiedFiles && msg.modifiedFiles.length > 0)) && (
                 <div className="mt-3 rounded-lg border border-white/10 bg-[#070a10] p-2.5">
                   <div className="flex items-center justify-between border-b border-white/10 pb-1 mb-2">
-                    <span className="text-[10px] text-cyan-300 font-mono">Generated Code</span>
-                    {activeFile && (
+                    <span className="text-[10px] text-cyan-300 font-mono">
+                      {msg.modifiedFiles && msg.modifiedFiles.length > 0
+                        ? `Patch: ${msg.modifiedFiles[0].path}`
+                        : 'Generated Code'}
+                    </span>
+                    {!msg.isStreaming && (
                       <button
                         onClick={() => handleApply(msg)}
                         className="flex items-center gap-1 rounded bg-cyan-400 px-2 py-0.5 text-[10px] font-bold text-black hover:bg-cyan-300 transition-colors duration-150 active:scale-[0.98]"
@@ -237,14 +347,19 @@ export function AIEngineeringAssistant({
                         ) : (
                           <>
                             <ArrowRight className="h-3 w-3" />
-                            <span>Apply to {activeFile.name}</span>
+                            <span>
+                              Apply to {msg.modifiedFiles?.[0]?.path.split('/').pop() || activeFile?.name || 'File'}
+                            </span>
                           </>
                         )}
                       </button>
                     )}
                   </div>
-                  <pre className="max-h-48 overflow-x-auto font-mono text-[11px] text-cyan-100/90 leading-5">
-                    <code>{msg.codeSnippet}</code>
+                  <pre className="max-h-48 overflow-x-auto font-mono text-[11px] text-cyan-100/90 leading-5 relative">
+                    <code>{msg.codeSnippet || msg.modifiedFiles?.[0]?.newContent}</code>
+                    {msg.isStreaming && (
+                      <span className="inline-block h-3.5 w-1.5 ml-1 bg-cyan-400 animate-pulse" />
+                    )}
                   </pre>
                 </div>
               )}
@@ -252,10 +367,10 @@ export function AIEngineeringAssistant({
           </div>
         ))}
 
-        {isThinking && (
+        {isThinking && !messages.some((m) => m.isStreaming && m.text) && (
           <div className="flex items-center gap-2 rounded-xl border border-cyan-500/20 bg-cyan-950/20 p-3 text-xs text-cyan-300 max-w-[90%]">
             <Sparkles className="h-4 w-4 animate-spin text-cyan-400 shrink-0" />
-            <span>AI Engineer analyzing context...</span>
+            <span>AI Engineer generating file patch...</span>
           </div>
         )}
 

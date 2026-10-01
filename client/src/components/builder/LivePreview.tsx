@@ -1,20 +1,22 @@
 'use client';
 
-import type { ProjectFile, TemplateKind } from '@/lib/templates';
+import type { ProjectFile } from '@/types/project';
+import type { TemplateKind } from '@/lib/templates';
 import { BrowserPreview } from './BrowserPreview';
 import { BuilderTabs, type BuilderTab } from './BuilderTabs';
 import { CodeEditor } from './CodeEditor';
 import { GenerationLoader } from './GenerationLoader';
-
 import { ReadmeViewer } from './ReadmeViewer';
 
 export function LivePreview({
-  activeTab,
+  activeTab = 'preview',
   onTabChange,
   kind,
   title,
-  files,
+  projectId,
+  files = [],
   activeFile,
+  entryFile = 'app/page.tsx',
   onFileSelect,
   schema,
   api,
@@ -22,13 +24,15 @@ export function LivePreview({
   isLoading,
   error,
 }: {
-  activeTab: BuilderTab;
-  onTabChange: (tab: BuilderTab) => void;
+  activeTab?: BuilderTab;
+  onTabChange?: (tab: BuilderTab) => void;
   kind?: TemplateKind;
   title?: string;
-  files: ProjectFile[];
+  projectId?: string;
+  files?: ProjectFile[];
   activeFile?: ProjectFile;
-  onFileSelect: (file: ProjectFile) => void;
+  entryFile?: string;
+  onFileSelect?: (file: ProjectFile) => void;
   schema?: string;
   api?: string;
   readme?: string;
@@ -37,7 +41,7 @@ export function LivePreview({
 }) {
   return (
     <section className="relative flex h-full min-h-0 flex-col overflow-hidden rounded-none bg-[#070a0f]">
-      <BuilderTabs activeTab={activeTab} onChange={onTabChange} />
+      {onTabChange && <BuilderTabs activeTab={activeTab} onChange={onTabChange} />}
       {error && !isLoading ? (
         <div className="grid flex-1 place-items-center p-8 text-center">
           <div className="max-w-md rounded-2xl border border-rose-400/20 bg-rose-400/10 p-6">
@@ -46,8 +50,17 @@ export function LivePreview({
           </div>
         </div>
       ) : (
-        <div className="min-h-0 flex-1">
-          {activeTab === 'preview' && <BrowserPreview kind={kind} title={title} />}
+        <div className="min-h-0 flex-1 flex flex-col">
+          {activeTab === 'preview' && (
+            <BrowserPreview
+              kind={kind}
+              title={title}
+              projectId={projectId}
+              files={files}
+              activeFile={activeFile}
+              entryFile={entryFile}
+            />
+          )}
           {activeTab === 'code' && <CodeEditor file={activeFile} />}
           {activeTab === 'readme' && <ReadmeViewer content={readme || ''} />}
           {activeTab === 'schema' && <CodeEditor title="supabase/schema.sql" fallbackContent={schema} />}
@@ -58,4 +71,3 @@ export function LivePreview({
     </section>
   );
 }
-

@@ -50,7 +50,7 @@ export function ProjectSidebar({ projectId, isMobileOpen, onMobileClose }: Proje
   const { project } = useProject();
 
   const sidebarContent = (
-    <aside className="flex h-full w-64 flex-col border-r border-white/10 bg-[#05070a] text-white">
+    <aside className="flex h-full w-full flex-col border-r border-white/10 bg-[#05070a] text-white">
       {/* Workspace Header */}
       <div className="flex h-16 items-center justify-between border-b border-white/10 px-4">
         <Link

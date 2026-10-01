@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import type { ProjectFile } from '@/types/project';
 import JSZip from 'jszip';
 
+import { PanelGroup, Panel, PanelResizeHandle } from 'react-resizable-panels';
 import { TopNav } from './TopNav';
 import { WorkspaceHeader } from './WorkspaceHeader';
 import { FileExplorerTree } from './FileExplorerTree';
@@ -15,6 +16,7 @@ import { AIEngineeringAssistant } from './AIEngineeringAssistant';
 import { BottomWorkspaceDock, TerminalLog, ProblemItem } from './BottomWorkspaceDock';
 import { LivePreview } from './LivePreview';
 import { GithubModal } from './GithubModal';
+import { VercelModal } from './VercelModal';
 import { updateProject } from '@/lib/database.client';
 
 export function CentralDevelopmentWorkspace({
@@ -51,6 +53,7 @@ export function CentralDevelopmentWorkspace({
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [isBottomDockExpanded, setIsBottomDockExpanded] = useState(true);
   const [isGithubModalOpen, setIsGithubModalOpen] = useState(false);
+  const [isVercelModalOpen, setIsVercelModalOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
   // Bottom dock state
@@ -134,6 +137,14 @@ export function CentralDevelopmentWorkspace({
       });
     });
     return list;
+  }, [files, contentMap]);
+
+  // Merge contentMap edits on top of base files for live preview
+  const mergedFiles = useMemo(() => {
+    return files.map((file) => ({
+      ...file,
+      content: contentMap[file.path] ?? file.content,
+    }));
   }, [files, contentMap]);
 
   // Tab & File Selection
@@ -229,12 +240,24 @@ export function CentralDevelopmentWorkspace({
     toast.info(`Deleted ${path}`);
   };
 
-  // Apply AI Code to Active File
-  const handleApplyAICode = (code: string) => {
-    if (!activeFile) return;
-    handleChangeContent(activeFile.path, code);
-    addLog('success', `Applied AI code generation to ${activeFile.name}`);
-    toast.success(`Applied AI code to ${activeFile.name}`);
+  // Apply AI Code / Patches to workspace files
+  const handleApplyAICode = (codeOrFiles: string | Array<{ path: string; newContent: string }>, targetPath?: string) => {
+    if (Array.isArray(codeOrFiles)) {
+      if (codeOrFiles.length === 0) return;
+      codeOrFiles.forEach((mod) => {
+        handleChangeContent(mod.path, mod.newContent);
+      });
+      const names = codeOrFiles.map((m) => m.path.split('/').pop() || m.path).join(', ');
+      addLog('success', `Applied AI code patch to ${names}`);
+      toast.success(`Applied AI code update to ${names}`);
+    } else if (typeof codeOrFiles === 'string') {
+      const path = targetPath || activeFile?.path;
+      if (!path) return;
+      handleChangeContent(path, codeOrFiles);
+      const name = path.split('/').pop() || path;
+      addLog('success', `Applied AI code update to ${name}`);
+      toast.success(`Applied AI code update to ${name}`);
+    }
   };
 
   // Format File Action
@@ -439,18 +462,38 @@ export function CentralDevelopmentWorkspace({
     }
   };
 
-  // Honest Deploy Action
+  // Vercel Deploy Action
   const handleDeploy = () => {
-    addLog('info', 'Edge deployment integration is coming soon in Blueprint.ai Cloud.');
-    toast.info('Edge deployment is coming soon. Use Export or Push to GitHub for deployment.');
+    addLog('info', 'Opening Vercel One-Click Deployment manager...');
+    setIsVercelModalOpen(true);
   };
 
-  // Dynamic Column Grid Styles
-  const gridColumnsStyle = useMemo(() => {
-    const leftCol = isLeftCollapsed ? '0px' : `${leftWidth}px`;
-    const rightCol = isRightCollapsed ? '0px' : `${rightWidth}px`;
-    return { gridTemplateColumns: `${leftCol} 1fr ${rightCol}` };
-  }, [leftWidth, rightWidth, isLeftCollapsed, isRightCollapsed]);
+function CustomResizeHandle({
+  direction = 'horizontal',
+  className = '',
+}: {
+  direction?: 'horizontal' | 'vertical';
+  className?: string;
+}) {
+  return (
+    <PanelResizeHandle
+      className={cn(
+        'group relative flex items-center justify-center transition-colors duration-150 outline-none select-none z-30 shrink-0',
+        direction === 'horizontal'
+          ? 'w-1.5 hover:w-2 hover:bg-cyan-400/40 cursor-col-resize border-x border-white/[0.04] bg-[#070a0f]'
+          : 'h-1.5 hover:h-2 hover:bg-cyan-400/40 cursor-row-resize border-y border-white/[0.04] bg-[#070a0f]',
+        className
+      )}
+    >
+      <div
+        className={cn(
+          'bg-white/20 group-hover:bg-cyan-400 transition-colors duration-150 rounded-full',
+          direction === 'horizontal' ? 'w-0.5 h-6 group-hover:h-10' : 'h-0.5 w-6 group-hover:w-10'
+        )}
+      />
+    </PanelResizeHandle>
+  );
+}
 
   return (
     <div className="flex h-full w-full flex-col bg-[#0a0d14] overflow-hidden">
@@ -479,91 +522,133 @@ export function CentralDevelopmentWorkspace({
         onDeploy={handleDeploy}
       />
 
-      {/* 3. Main Workspace Area (1fr) */}
-      <div className="grid flex-1 min-h-0 relative overflow-hidden" style={gridColumnsStyle}>
-        {/* Left Column: File Explorer (260px) */}
-        {!isLeftCollapsed && (
-          <FileExplorerTree
-            files={files}
-            activeFile={activeFile}
-            dirtyPaths={dirtyPaths}
-            repoName={project?.name}
-            onSelect={handleSelectFile}
-            onCreateFile={handleCreateFile}
-            onDeleteFile={handleDeleteFile}
-            onSyncRepo={handleSyncRepo}
-          />
-        )}
+      {/* 3. Outer Vertical PanelGroup (Main Workspace vs Bottom Dock) */}
+      <PanelGroup direction="vertical" className="flex-1 min-h-0">
+        {/* Main Workspace Area */}
+        <Panel defaultSize={75} minSize={30}>
+          {/* Inner Horizontal PanelGroup (File Explorer, Code/Preview, AI Engineer) */}
+          <PanelGroup direction="horizontal" className="h-full w-full">
+            {/* Left Column: File Explorer */}
+            {!isLeftCollapsed && (
+              <>
+                <Panel defaultSize={18} minSize={12} maxSize={35}>
+                  <FileExplorerTree
+                    files={files}
+                    activeFile={activeFile}
+                    dirtyPaths={dirtyPaths}
+                    repoName={project?.name}
+                    onSelect={handleSelectFile}
+                    onCreateFile={handleCreateFile}
+                    onDeleteFile={handleDeleteFile}
+                    onSyncRepo={handleSyncRepo}
+                  />
+                </Panel>
+                <CustomResizeHandle direction="horizontal" />
+              </>
+            )}
 
-        {/* Center Column: Multi-tab Code Editor + Split Preview */}
-        <div className="flex h-full min-h-0 flex-col relative overflow-hidden bg-[#0a0d14]">
-          <div className={cn('flex-1 min-h-0', isPreviewOpen && 'h-1/2 flex-none')}>
-            <CodeEditorWorkspace
-              activeFile={activeFile}
-              openTabs={openTabs}
-              dirtyPaths={dirtyPaths}
-              contentMap={contentMap}
-              onSelectTab={handleSelectFile}
-              onCloseTab={handleCloseTab}
-              onChangeContent={handleChangeContent}
-              onSaveFile={handleSaveFile}
-              onFormatFile={handleFormatFile}
-              onTogglePreview={() => setIsPreviewOpen((v) => !v)}
-              isPreviewOpen={isPreviewOpen}
-            />
-          </div>
+            {/* Center Column: Multi-tab Code Editor + Split Preview */}
+            <Panel defaultSize={57} minSize={30}>
+              {isPreviewOpen ? (
+                <PanelGroup direction="vertical" className="h-full w-full">
+                  <Panel defaultSize={50} minSize={20}>
+                    <CodeEditorWorkspace
+                      activeFile={activeFile}
+                      openTabs={openTabs}
+                      dirtyPaths={dirtyPaths}
+                      contentMap={contentMap}
+                      onSelectTab={handleSelectFile}
+                      onCloseTab={handleCloseTab}
+                      onChangeContent={handleChangeContent}
+                      onSaveFile={handleSaveFile}
+                      onFormatFile={handleFormatFile}
+                      onTogglePreview={() => setIsPreviewOpen((v) => !v)}
+                      isPreviewOpen={isPreviewOpen}
+                    />
+                  </Panel>
+                  <CustomResizeHandle direction="vertical" />
+                  <Panel defaultSize={50} minSize={20}>
+                    <LivePreview
+                      activeTab="preview"
+                      onTabChange={() => {}}
+                      kind={project?.kind}
+                      title={project?.name}
+                      files={mergedFiles}
+                      activeFile={activeFile}
+                      onFileSelect={handleSelectFile}
+                      schema={project?.schema_code || ''}
+                      api={project?.api_code || ''}
+                      readme={project?.readme_code || ''}
+                      isLoading={false}
+                      error={null}
+                    />
+                  </Panel>
+                </PanelGroup>
+              ) : (
+                <CodeEditorWorkspace
+                  activeFile={activeFile}
+                  openTabs={openTabs}
+                  dirtyPaths={dirtyPaths}
+                  contentMap={contentMap}
+                  onSelectTab={handleSelectFile}
+                  onCloseTab={handleCloseTab}
+                  onChangeContent={handleChangeContent}
+                  onSaveFile={handleSaveFile}
+                  onFormatFile={handleFormatFile}
+                  onTogglePreview={() => setIsPreviewOpen((v) => !v)}
+                  isPreviewOpen={isPreviewOpen}
+                />
+              )}
+            </Panel>
 
-          {/* Split Live Preview Window */}
-          {isPreviewOpen && (
-            <div className="h-1/2 border-t border-cyan-500/30 bg-[#070a0f] min-h-0">
-              <LivePreview
-                activeTab="preview"
-                onTabChange={() => {}}
-                kind={project?.kind}
-                title={project?.name}
-                files={files}
-                activeFile={activeFile}
-                onFileSelect={handleSelectFile}
-                schema={project?.schema_code || ''}
-                api={project?.api_code || ''}
-                readme={project?.readme_code || ''}
-                isLoading={false}
-                error={null}
-              />
-            </div>
-          )}
-        </div>
+            {/* Right Column: AI Engineering Assistant */}
+            {!isRightCollapsed && (
+              <>
+                <CustomResizeHandle direction="horizontal" />
+                <Panel defaultSize={25} minSize={18} maxSize={45}>
+                  <AIEngineeringAssistant
+                    activeFile={activeFile}
+                    activeFileContent={activeFile ? contentMap[activeFile.path] ?? activeFile.content : ''}
+                    projectFiles={files}
+                    projectName={project?.name}
+                    onApplyCode={handleApplyAICode}
+                  />
+                </Panel>
+              </>
+            )}
+          </PanelGroup>
+        </Panel>
 
-        {/* Right Column: AI Engineering Assistant (360px) */}
-        {!isRightCollapsed && (
-          <AIEngineeringAssistant
-            activeFile={activeFile}
-            activeFileContent={activeFile ? contentMap[activeFile.path] ?? activeFile.content : ''}
+        {/* Vertical Resize Handle above Bottom Dock */}
+        {isBottomDockExpanded && <CustomResizeHandle direction="vertical" />}
+
+        {/* Bottom Dock Panel */}
+        <Panel
+          defaultSize={25}
+          minSize={isBottomDockExpanded ? 15 : 4}
+          maxSize={isBottomDockExpanded ? 60 : 4}
+        >
+          <BottomWorkspaceDock
+            isExpanded={isBottomDockExpanded}
+            onToggleExpand={() => setIsBottomDockExpanded((v) => !v)}
+            logs={logs}
+            problems={problems}
+            dirtyFiles={dirtyPaths}
             projectFiles={files}
-            projectName={project?.name}
-            onApplyCode={handleApplyAICode}
+            contentMap={contentMap}
+            repoName={project?.name}
+            onClearLogs={() => setLogs([])}
+            onAddLog={(type, message) => addLog(type, message)}
+            onSelectProblemFile={(filePath) => {
+              const target = files.find((f) => f.path === filePath);
+              if (target) handleSelectFile(target);
+            }}
+            onCommitChanges={handleCommitChanges}
+            onPushGithub={() => setIsGithubModalOpen(true)}
+            onRunTests={() => addLog('info', 'Executing structural verification suite...')}
           />
-        )}
-      </div>
-
-      {/* 4. Bottom Dock: Terminal / Problems / Git Changes / Tests (240px) */}
-      <BottomWorkspaceDock
-        isExpanded={isBottomDockExpanded}
-        onToggleExpand={() => setIsBottomDockExpanded((v) => !v)}
-        logs={logs}
-        problems={problems}
-        dirtyFiles={dirtyPaths}
-        projectFiles={files}
-        repoName={project?.name}
-        onClearLogs={() => setLogs([])}
-        onSelectProblemFile={(filePath) => {
-          const target = files.find((f) => f.path === filePath);
-          if (target) handleSelectFile(target);
-        }}
-        onCommitChanges={handleCommitChanges}
-        onPushGithub={() => setIsGithubModalOpen(true)}
-        onRunTests={() => addLog('info', 'Executing structural verification suite...')}
-      />
+        </Panel>
+      </PanelGroup>
 
       {/* GitHub Modal */}
       <GithubModal
@@ -574,6 +659,18 @@ export function CentralDevelopmentWorkspace({
         onSuccess={(url) => {
           addLog('success', `Pushed repository files to ${url}`);
           toast.success(`Pushed to ${url}`);
+        }}
+      />
+
+      {/* Vercel Deploy Modal */}
+      <VercelModal
+        isOpen={isVercelModalOpen}
+        onClose={() => setIsVercelModalOpen(false)}
+        projectName={project?.name || 'blueprint-app'}
+        files={mergedFiles}
+        onSuccess={(url) => {
+          addLog('success', `Deployed live application to Vercel: ${url}`);
+          toast.success(`Deployed to ${url}`);
         }}
       />
     </div>
