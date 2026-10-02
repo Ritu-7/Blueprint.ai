@@ -53,6 +53,7 @@ export function CentralDevelopmentWorkspace({
   const [isStreaming, setIsStreaming] = useState(false);
   const [buildingFile, setBuildingFile] = useState<string | null>(null);
   const [undoHistory, setUndoHistory] = useState<ProjectFile[][]>([]);
+  const [pendingFix, setPendingFix] = useState<string | null>(null);
 
   // UI Panel toggles
   const [isPreviewOpen, setIsPreviewOpen] = useState(true);
@@ -246,9 +247,9 @@ export function CentralDevelopmentWorkspace({
   };
 
   // Apply AI File Changes with Undo History snapshot
-  const handleApplyFileChanges = ({ updatedFiles, notices }: { updatedFiles: ProjectFile[]; notices: Array<{ path: string; type: string }> }) => {
-    // Push previous snapshot to undo stack
-    setUndoHistory((prev) => [...prev, files]);
+  const handleApplyFileChanges = ({ updatedFiles, notices, startOfEdit }: { updatedFiles: ProjectFile[]; notices: Array<{ path: string; type: string }>; startOfEdit?: boolean }) => {
+    // One undo snapshot per AI prompt (taken before its first file lands)
+    if (startOfEdit !== false) setUndoHistory((prev) => [...prev, files].slice(-20));
     setFiles(updatedFiles);
 
     // If active file was updated, sync active file object
@@ -276,6 +277,7 @@ export function CentralDevelopmentWorkspace({
     setIsRightCollapsed(false);
     addLog('warn', `Fixing preview error with AI: ${errorMsg.slice(0, 100)}...`);
     toast.info('Sending error report to AI Assistant...');
+    setPendingFix(`The live preview shows this error${offendingFile ? ` (in ${offendingFile})` : ''}. Find the cause and fix it:\n\n${errorMsg}`);
   };
 
   // Apply AI Code / Patches to workspace files
@@ -656,6 +658,12 @@ function CustomResizeHandle({
                     onApplyFileChanges={handleApplyFileChanges}
                     onUndo={handleUndo}
                     canUndo={undoHistory.length > 0}
+                    pendingPrompt={pendingFix}
+                    onPromptConsumed={() => setPendingFix(null)}
+                    onStreamingChange={(streaming, file) => {
+                      setIsStreaming(streaming);
+                      setBuildingFile(file);
+                    }}
                   />
                 </Panel>
               </>

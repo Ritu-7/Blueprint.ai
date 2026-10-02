@@ -11,6 +11,8 @@ export interface SSEEvent {
 
 export type EventCallback = (event: SSEEvent) => void;
 
+const MAX_CONTEXT_CHARS = 14000;
+
 const SYSTEM_PROMPT = `You are a world-class senior frontend engineer. You build complete, production-ready, beautiful React applications based on user prompts.
 
 REQUIREMENTS:
@@ -32,20 +34,29 @@ import React from 'react';
 If deleting an unnecessary file, output:
 <delete path="src/oldFile.ts"/>
 
-CRITICAL: Output FULL file contents inside <file path="...">. Never use truncation or snippets.`;
+CRITICAL: Output FULL file contents inside <file path="...">. Never use truncation or snippets.
+
+PROJECT CONSTRAINTS:
+- The entry point MUST be src/App.tsx with a default export. Use relative imports between files.
+- Do NOT create index.tsx, main.tsx, index.html, package.json, tsconfig, tailwind config or any .css file. They are provided automatically (Tailwind comes from a CDN, use utility classes).
+- Allowed packages ONLY: react, lucide-react, framer-motion, recharts, clsx, tailwind-merge. No next/* imports, no network or backend calls.
+
+EDIT MODE (when current files are provided):
+- Output ONLY files that are new or changed, each in FULL. Never output unchanged files.
+- Preserve working features. If the user only asks a question, answer in plain text with no file blocks.`;
 
 export class CodegenService {
   /** Returns the active provider info based on available keys */
   static getActiveProvider(): { provider: 'anthropic' | 'gemini' | 'none'; model: string } {
     const anthropicKey = process.env.ANTHROPIC_API_KEY || process.env.CLAUDE_API_KEY;
     if (anthropicKey) {
-      const model = process.env.CODEGEN_MODEL || 'claude-3-7-sonnet-20250219';
+      const model = process.env.CODEGEN_MODEL || 'claude-sonnet-5-5';
       return { provider: 'anthropic', model };
     }
 
     const geminiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
     if (geminiKey) {
-      const model = process.env.GEMINI_CODEGEN_MODEL || 'gemini-flash-lite-latest';
+      const model = process.env.GEMINI_CODEGEN_MODEL || 'gemini-2.5-flash';
       return { provider: 'gemini', model };
     }
 
@@ -96,7 +107,7 @@ export class CodegenService {
     let userContent = prompt;
     if (currentFiles.length > 0) {
       const filesSummary = currentFiles
-        .map((f) => `<file path="${f.path}">\n${f.content.slice(0, 3000)}\n</file>`)
+        .map((f) => `<file path="${f.path}">\n${f.content.slice(0, MAX_CONTEXT_CHARS)}\n</file>`)
         .join('\n\n');
       userContent = `Current files:\n${filesSummary}\n\nUser request:\n${prompt}`;
     }
@@ -151,19 +162,23 @@ export class CodegenService {
           const dataStr = trimmed.slice(6);
           if (dataStr === '[DONE]') continue;
 
+          let data: any;
           try {
-            const data = JSON.parse(dataStr);
-            if (data.type === 'content_block_delta' && data.delta?.text) {
-              fileParser.parseChunk(data.delta.text);
-            }
+            data = JSON.parse(dataStr);
           } catch {
-            // Ignore malformed SSE JSON lines
+            continue; // ignore malformed SSE line
+          }
+          if (data.type === 'error') {
+            onEvent({ type: 'error', error: `Anthropic stream error: ${data.error?.message || 'unknown'}` });
+            return;
+          }
+          if (data.type === 'content_block_delta' && data.delta?.text) {
+            fileParser.parseChunk(data.delta.text);
           }
         }
       }
 
-      fileParser.finish();
-      onEvent({ type: 'done' });
+      if (fileParser.finish()) onEvent({ type: 'done' });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       logger.error(`Anthropic stream error: ${msg}`, 'codegenService');
@@ -183,12 +198,12 @@ export class CodegenService {
     const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
     const baseUrl = process.env.GEMINI_BASE_URL || 'https://generativelanguage.googleapis.com';
 
-    let userContent = `${SYSTEM_PROMPT}\n\nUser request:\n${prompt}`;
+    let userContent = prompt;
     if (currentFiles.length > 0) {
       const filesSummary = currentFiles
-        .map((f) => `<file path="${f.path}">\n${f.content.slice(0, 3000)}\n</file>`)
+        .map((f) => `<file path="${f.path}">\n${f.content.slice(0, MAX_CONTEXT_CHARS)}\n</file>`)
         .join('\n\n');
-      userContent = `${SYSTEM_PROMPT}\n\nCurrent files:\n${filesSummary}\n\nUser request:\n${prompt}`;
+      userContent = `Current files:\n${filesSummary}\n\nUser request:\n${prompt}`;
     }
 
     try {
@@ -197,8 +212,12 @@ export class CodegenService {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          contents: [{ parts: [{ text: userContent }] }],
-          generationConfig: { temperature: 0.3, maxOutputTokens: 8192 },
+          systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
+          contents: [
+            ...history.map((m) => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.content }] })),
+            { role: 'user', parts: [{ text: userContent }] },
+          ],
+          generationConfig: { temperature: 0.4, maxOutputTokens: 16000 },
         }),
       });
 
@@ -241,8 +260,7 @@ export class CodegenService {
         }
       }
 
-      fileParser.finish();
-      onEvent({ type: 'done' });
+      if (fileParser.finish()) onEvent({ type: 'done' });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       onEvent({ type: 'error', error: `Gemini Stream Error: ${msg}` });
@@ -291,7 +309,9 @@ class StreamBlockParser {
             this.onEvent({ type: 'plan_delta', chunk: planText });
           }
           this.inPlan = false;
-          this.currentPath = fileMatch[1];
+          const safePath = fileMatch[1].trim().replace(/^\/+/, '');
+          if (!safePath || safePath.includes('..')) throw new Error(`AI produced an invalid file path: "${fileMatch[1]}"`);
+          this.currentPath = safePath;
           this.onEvent({ type: 'file_start', path: this.currentPath });
           this.buffer = this.buffer.slice(fileMatch.index! + fileMatch[0].length);
           continue;
@@ -330,16 +350,22 @@ class StreamBlockParser {
     }
   }
 
-  finish() {
+  /** Returns false (and emits an error) if the output was cut off mid-file. */
+  finish(): boolean {
     if (this.currentPath !== null) {
-      if (this.buffer) {
-        this.onEvent({ type: 'file_delta', path: this.currentPath, chunk: this.buffer });
-      }
-      this.onEvent({ type: 'file_end', path: this.currentPath });
+      const p = this.currentPath;
       this.currentPath = null;
-    } else if (this.inPlan && this.buffer) {
+      this.buffer = '';
+      this.onEvent({
+        type: 'error',
+        error: `The AI response was cut off while writing "${p}". Please retry or simplify the request.`,
+      });
+      return false;
+    }
+    if (this.inPlan && this.buffer) {
       this.onEvent({ type: 'plan_delta', chunk: this.buffer });
     }
     this.buffer = '';
+    return true;
   }
 }

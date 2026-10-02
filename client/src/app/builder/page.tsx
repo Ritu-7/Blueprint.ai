@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { toast } from 'sonner';
 import { Sparkles, ArrowLeft, Layers, Loader2 } from 'lucide-react';
 import { PromptBox } from '@/components/builder/PromptBox';
+import { streamBuilder } from '@/lib/builderClient';
 import { GenerationLoader } from '@/components/builder/GenerationLoader';
 import { saveProject } from '@/lib/database.client';
 import { createClerkSupabaseClient } from '@/lib/supabase/client';
@@ -50,19 +51,21 @@ function BuilderPageContent() {
         // Ignore local storage write errors
       }
 
-      // 1. Call AI generation API
-      const res = await fetch('/api/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: promptText }),
-      });
-
-      const responseData = await res.json();
-      if (!res.ok || !responseData.success) {
-        throw new Error(responseData.error || responseData.message || 'Failed to generate application blueprint');
+      // 1. Stream a real, AI-written multi-file React app (no template fallback)
+      const result = await streamBuilder({ prompt: promptText });
+      const appFile = result.files.find((f) => /(^|\/)App\.tsx$/.test(f.path));
+      if (!appFile) {
+        throw new Error('The AI did not produce src/App.tsx. Please retry or simplify the prompt.');
       }
-
-      const generated = responseData.data;
+      const generated: Record<string, any> = {
+        name: promptText.slice(0, 48).replace(/\s+\S*$/, '') || 'AI Application',
+        kind: 'saas',
+        uiCode: appFile.content,
+        schema: '',
+        api: '',
+        files: result.files,
+        readme_code: result.plan,
+      };
 
       // 2. Persist to Supabase database using authenticated Clerk client
       const supabase = createClerkSupabaseClient(session);

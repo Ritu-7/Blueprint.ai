@@ -8,6 +8,7 @@ import {
 import type { ProjectFile } from '@/types/project';
 import { cn } from '@/utils/utils';
 import { MarkdownRenderer } from './MarkdownRenderer';
+import { cleanFileContent, languageFor, readErrorMessage } from '@/lib/builderClient';
 
 export type ContextScope = 'file' | 'project' | 'blueprint';
 
@@ -33,14 +34,26 @@ export function AIEngineeringAssistant({
   onApplyFileChanges,
   onUndo,
   canUndo,
+  pendingPrompt,
+  onPromptConsumed,
+  onStreamingChange,
 }: {
   activeFile?: ProjectFile;
   activeFileContent?: string;
   projectFiles: ProjectFile[];
   projectName?: string;
-  onApplyFileChanges: (changes: { updatedFiles: ProjectFile[]; notices: FileChangeNotice[] }) => void;
+  onApplyFileChanges: (changes: {
+    updatedFiles: ProjectFile[];
+    notices: FileChangeNotice[];
+    /** true only for the first apply of a prompt, so one prompt = one undo step */
+    startOfEdit?: boolean;
+  }) => void;
   onUndo?: () => void;
   canUndo?: boolean;
+  /** e.g. "Fix with AI" from the preview error banner */
+  pendingPrompt?: string | null;
+  onPromptConsumed?: () => void;
+  onStreamingChange?: (streaming: boolean, buildingFile: string | null) => void;
 }) {
   const [contextScope, setContextScope] = useState<ContextScope>('project');
   const [prompt, setPrompt] = useState('');
@@ -66,59 +79,63 @@ export function AIEngineeringAssistant({
     const textToSend = overridePrompt || prompt;
     if (!textToSend.trim() || isThinking) return;
 
-    const userMsg: AIMessage = {
-      id: `usr-${Date.now()}`,
-      role: 'user',
-      text: textToSend,
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-    };
-
+    const stamp = () => new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     const aiMsgId = `ai-${Date.now()}`;
+    const userMsg: AIMessage = { id: `usr-${Date.now()}`, role: 'user', text: textToSend, timestamp: stamp() };
     const initialAiMsg: AIMessage = {
       id: aiMsgId,
       role: 'assistant',
       text: '',
       changedFiles: [],
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      timestamp: stamp(),
       isStreaming: true,
     };
 
     setMessages((prev) => [...prev, userMsg, initialAiMsg]);
     if (!overridePrompt) setPrompt('');
     setIsThinking(true);
+    onStreamingChange?.(true, null);
+
+    const patchAi = (patch: Partial<AIMessage>) =>
+      setMessages((prev) => prev.map((m) => (m.id === aiMsgId ? { ...m, ...patch } : m)));
+
+    // Unsaved editor buffer of the active file is included so the AI edits what the user sees
+    const baseFiles: ProjectFile[] = projectFiles.map((f) =>
+      f.path === activeFile?.path ? { ...f, content: activeFileContent ?? f.content ?? '' } : f
+    );
+
+    let fullPlanText = '';
+    let currentFilesState = [...baseFiles];
+    const noticesMap = new Map<string, FileChangeNotice>();
+    const fileBuffers: Record<string, string> = {};
+    let firstApply = true;
+    let finished = false;
 
     try {
-      // Construct history for endpoint
       const history = messages
-        .filter((m) => m.id !== 'msg-welcome')
+        .filter((m) => m.id !== 'msg-welcome' && m.text.trim() && !m.isStreaming)
+        .slice(-10)
         .map((m) => ({ role: m.role, content: m.text }));
 
       const res = await fetch('/api/builder/edit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          prompt: textToSend,
-          history,
-          currentFiles: projectFiles,
-        }),
+        body: JSON.stringify({ prompt: textToSend, history, currentFiles: baseFiles }),
       });
-
-      if (!res.ok || !res.body) {
-        throw new Error(`Server returned HTTP ${res.status}`);
-      }
+      if (!res.ok || !res.body) throw new Error(await readErrorMessage(res));
 
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let buffer = '';
 
-      let currentFilesState = [...projectFiles];
-      const noticesMap = new Map<string, FileChangeNotice>();
+      const applyNow = () => {
+        const notices = Array.from(noticesMap.values());
+        patchAi({ changedFiles: notices });
+        onApplyFileChanges({ updatedFiles: currentFilesState, notices, startOfEdit: firstApply });
+        firstApply = false;
+      };
 
-      let fullPlanText = '';
-      let buildingFile: string | null = null;
-      let fileBuffers: Record<string, string> = {};
-
-      while (true) {
+      for (;;) {
         const { value, done } = await reader.read();
         if (done) break;
 
@@ -128,84 +145,76 @@ export function AIEngineeringAssistant({
 
         for (const line of lines) {
           const trimmed = line.trim();
-          if (!trimmed || !trimmed.startsWith('data: ')) continue;
+          if (!trimmed.startsWith('data:')) continue;
 
+          // Only JSON parsing is guarded. Server-reported errors MUST propagate (they used to be swallowed).
+          let event: { type: string; path?: string; chunk?: string; error?: string };
           try {
-            const event = JSON.parse(trimmed.slice(6));
-
-            if (event.type === 'plan_delta' && event.chunk) {
-              fullPlanText += event.chunk;
-              setMessages((prev) =>
-                prev.map((m) => (m.id === aiMsgId ? { ...m, text: fullPlanText } : m))
-              );
-            } else if (event.type === 'file_start' && event.path) {
-              buildingFile = event.path;
-              fileBuffers[event.path] = '';
-            } else if (event.type === 'file_delta' && event.path && event.chunk) {
-              fileBuffers[event.path] = (fileBuffers[event.path] || '') + event.chunk;
-            } else if (event.type === 'file_end' && event.path) {
-              const path = event.path;
-              const content = fileBuffers[path] || '';
-              const exists = currentFilesState.some((f) => f.path === path);
-
-              if (exists) {
-                currentFilesState = currentFilesState.map((f) => (f.path === path ? { ...f, content } : f));
-                noticesMap.set(path, { path, type: 'modified' });
-              } else {
-                currentFilesState.push({
-                  path,
-                  name: path.split('/').pop() || path,
-                  language: path.endsWith('.tsx') ? 'tsx' : path.endsWith('.ts') ? 'ts' : 'json',
-                  content,
-                });
-                noticesMap.set(path, { path, type: 'created' });
-              }
-
-              const noticesArr = Array.from(noticesMap.values());
-              setMessages((prev) =>
-                prev.map((m) => (m.id === aiMsgId ? { ...m, changedFiles: noticesArr } : m))
-              );
-              onApplyFileChanges({ updatedFiles: currentFilesState, notices: noticesArr });
-              buildingFile = null;
-            } else if (event.type === 'file_delete' && event.path) {
-              const path = event.path;
-              currentFilesState = currentFilesState.filter((f) => f.path !== path);
-              noticesMap.set(path, { path, type: 'deleted' });
-
-              const noticesArr = Array.from(noticesMap.values());
-              setMessages((prev) =>
-                prev.map((m) => (m.id === aiMsgId ? { ...m, changedFiles: noticesArr } : m))
-              );
-              onApplyFileChanges({ updatedFiles: currentFilesState, notices: noticesArr });
-            } else if (event.type === 'error' && event.error) {
-              throw new Error(event.error);
-            }
+            event = JSON.parse(trimmed.slice(5).trim());
           } catch {
-            // Ignore malformed SSE JSON
+            continue;
+          }
+
+          if (event.type === 'error') throw new Error(event.error || 'AI generation failed');
+          if (event.type === 'done') finished = true;
+          else if (event.type === 'plan_delta' && event.chunk) {
+            fullPlanText += event.chunk;
+            patchAi({ text: fullPlanText });
+          } else if (event.type === 'file_start' && event.path) {
+            fileBuffers[event.path] = '';
+            onStreamingChange?.(true, event.path);
+          } else if (event.type === 'file_delta' && event.path) {
+            fileBuffers[event.path] = (fileBuffers[event.path] || '') + (event.chunk ?? '');
+          } else if (event.type === 'file_end' && event.path) {
+            const path = event.path;
+            const content = cleanFileContent(fileBuffers[path] || '');
+            delete fileBuffers[path];
+            if (currentFilesState.some((f) => f.path === path)) {
+              currentFilesState = currentFilesState.map((f) => (f.path === path ? { ...f, content } : f));
+              noticesMap.set(path, { path, type: 'modified' });
+            } else {
+              currentFilesState = [
+                ...currentFilesState,
+                { path, name: path.split('/').pop() || path, language: languageFor(path), content },
+              ];
+              noticesMap.set(path, { path, type: 'created' });
+            }
+            applyNow();
+            onStreamingChange?.(true, null);
+          } else if (event.type === 'file_delete' && event.path) {
+            currentFilesState = currentFilesState.filter((f) => f.path !== event.path);
+            noticesMap.set(event.path, { path: event.path, type: 'deleted' });
+            applyNow();
           }
         }
       }
 
-      setMessages((prev) =>
-        prev.map((m) => (m.id === aiMsgId ? { ...m, isStreaming: false } : m))
-      );
+      if (!finished) throw new Error('The AI stream ended unexpectedly. Please retry.');
+
+      patchAi({
+        isStreaming: false,
+        text: fullPlanText.trim() || (noticesMap.size === 0 ? 'The AI made no code changes for this request.' : 'Done.'),
+      });
     } catch (err: unknown) {
       const errorText = err instanceof Error ? err.message : 'AI generation error';
-      setMessages((prev) =>
-        prev.map((m) =>
-          m.id === aiMsgId
-            ? {
-                ...m,
-                text: `Issue processing request: ${errorText}`,
-                isStreaming: false,
-              }
-            : m
-        )
-      );
+      patchAi({
+        isStreaming: false,
+        text: `${fullPlanText.trim() ? fullPlanText.trim() + '\n\n' : ''}**Issue processing request:** ${errorText}`,
+      });
     } finally {
       setIsThinking(false);
+      onStreamingChange?.(false, null);
     }
   };
+
+  // "Fix with AI" from the preview banner arrives as pendingPrompt
+  useEffect(() => {
+    if (pendingPrompt && !isThinking) {
+      onPromptConsumed?.();
+      handleSend(pendingPrompt);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingPrompt]);
 
   return (
     <aside className="flex h-full min-h-0 flex-col border-l border-white/[0.06] bg-[#0f131c]">
