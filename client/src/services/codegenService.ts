@@ -121,6 +121,10 @@ export class CodegenService {
           'x-api-key': apiKey!,
           'anthropic-version': '2023-06-01',
           'content-type': 'application/json',
+          // Required when the key is not scoped to a single workspace (identity-linked "sk-ant-usr-" keys)
+          ...(process.env.ANTHROPIC_WORKSPACE_ID
+            ? { 'anthropic-workspace-id': process.env.ANTHROPIC_WORKSPACE_ID }
+            : {}),
         },
         body: JSON.stringify({
           model,
