@@ -31,6 +31,9 @@ export function BrowserPreview({
   files = [],
   activeFile,
   entryFile = 'app/page.tsx',
+  onFixWithAI,
+  isStreaming,
+  buildingFile,
 }: {
   kind?: TemplateKind;
   title?: string;
@@ -38,6 +41,9 @@ export function BrowserPreview({
   files?: ProjectFile[];
   activeFile?: ProjectFile;
   entryFile?: string;
+  onFixWithAI?: (error: string, offendingFile?: string) => void;
+  isStreaming?: boolean;
+  buildingFile?: string | null;
 }) {
   const [viewport, setViewport] = useState<Viewport>('desktop');
   const [copied, setCopied] = useState(false);
@@ -138,7 +144,14 @@ export function BrowserPreview({
               widths[viewport]
             )}
           >
-            <SandpackLivePreview files={files} activeFile={activeFile} entryFile={entryFile} />
+            <SandpackLivePreview
+              files={files}
+              activeFile={activeFile}
+              entryFile={entryFile}
+              onFixWithAI={onFixWithAI}
+              isStreaming={isStreaming}
+              buildingFile={buildingFile}
+            />
           </div>
         ) : (
           <div className="grid h-full place-items-center rounded-2xl border border-dashed border-white/10 text-center">

@@ -23,6 +23,9 @@ export function LivePreview({
   readme,
   isLoading,
   error,
+  onFixWithAI,
+  isStreaming,
+  buildingFile,
 }: {
   activeTab?: BuilderTab;
   onTabChange?: (tab: BuilderTab) => void;
@@ -38,6 +41,9 @@ export function LivePreview({
   readme?: string;
   isLoading?: boolean;
   error?: string | null;
+  onFixWithAI?: (error: string, offendingFile?: string) => void;
+  isStreaming?: boolean;
+  buildingFile?: string | null;
 }) {
   return (
     <section className="relative flex h-full min-h-0 flex-col overflow-hidden rounded-none bg-[#070a0f]">
@@ -59,6 +65,9 @@ export function LivePreview({
               files={files}
               activeFile={activeFile}
               entryFile={entryFile}
+              onFixWithAI={onFixWithAI}
+              isStreaming={isStreaming}
+              buildingFile={buildingFile}
             />
           )}
           {activeTab === 'code' && <CodeEditor file={activeFile} />}

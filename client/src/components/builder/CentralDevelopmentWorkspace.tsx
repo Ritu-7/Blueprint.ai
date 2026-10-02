@@ -49,8 +49,13 @@ export function CentralDevelopmentWorkspace({
   const [isLeftCollapsed, setIsLeftCollapsed] = useState(false);
   const [isRightCollapsed, setIsRightCollapsed] = useState(false);
 
+  // Streaming & Undo History State
+  const [isStreaming, setIsStreaming] = useState(false);
+  const [buildingFile, setBuildingFile] = useState<string | null>(null);
+  const [undoHistory, setUndoHistory] = useState<ProjectFile[][]>([]);
+
   // UI Panel toggles
-  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(true);
   const [isBottomDockExpanded, setIsBottomDockExpanded] = useState(true);
   const [isGithubModalOpen, setIsGithubModalOpen] = useState(false);
   const [isVercelModalOpen, setIsVercelModalOpen] = useState(false);
@@ -238,6 +243,39 @@ export function CentralDevelopmentWorkspace({
     handleCloseTab(path);
     addLog('warn', `Deleted file: ${path}`);
     toast.info(`Deleted ${path}`);
+  };
+
+  // Apply AI File Changes with Undo History snapshot
+  const handleApplyFileChanges = ({ updatedFiles, notices }: { updatedFiles: ProjectFile[]; notices: Array<{ path: string; type: string }> }) => {
+    // Push previous snapshot to undo stack
+    setUndoHistory((prev) => [...prev, files]);
+    setFiles(updatedFiles);
+
+    // If active file was updated, sync active file object
+    if (activeFile) {
+      const refreshedActive = updatedFiles.find((f) => f.path === activeFile.path);
+      if (refreshedActive) setActiveFile(refreshedActive);
+    }
+
+    const modifiedNames = notices.map((n) => n.path.split('/').pop() || n.path).join(', ');
+    addLog('success', `AI updated workspace files: ${modifiedNames}`);
+  };
+
+  // Undo last AI Edit
+  const handleUndo = () => {
+    if (undoHistory.length === 0) return;
+    const previous = undoHistory[undoHistory.length - 1];
+    setUndoHistory((prev) => prev.slice(0, -1));
+    setFiles(previous);
+    addLog('info', 'Restored previous file version snapshot.');
+    toast.success('Undid last AI edit');
+  };
+
+  // Fix Preview Error with AI
+  const handleFixWithAI = (errorMsg: string, offendingFile?: string) => {
+    setIsRightCollapsed(false);
+    addLog('warn', `Fixing preview error with AI: ${errorMsg.slice(0, 100)}...`);
+    toast.info('Sending error report to AI Assistant...');
   };
 
   // Apply AI Code / Patches to workspace files
@@ -573,6 +611,7 @@ function CustomResizeHandle({
                       onTabChange={() => {}}
                       kind={project?.kind}
                       title={project?.name}
+                      projectId={project?.id}
                       files={mergedFiles}
                       activeFile={activeFile}
                       onFileSelect={handleSelectFile}
@@ -581,6 +620,9 @@ function CustomResizeHandle({
                       readme={project?.readme_code || ''}
                       isLoading={false}
                       error={null}
+                      onFixWithAI={handleFixWithAI}
+                      isStreaming={isStreaming}
+                      buildingFile={buildingFile}
                     />
                   </Panel>
                 </PanelGroup>
@@ -611,7 +653,9 @@ function CustomResizeHandle({
                     activeFileContent={activeFile ? contentMap[activeFile.path] ?? activeFile.content : ''}
                     projectFiles={files}
                     projectName={project?.name}
-                    onApplyCode={handleApplyAICode}
+                    onApplyFileChanges={handleApplyFileChanges}
+                    onUndo={handleUndo}
+                    canUndo={undoHistory.length > 0}
                   />
                 </Panel>
               </>

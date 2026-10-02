@@ -88,25 +88,46 @@ function buildPreviewHTML(files: ProjectFile[], projectName: string): string {
 </head>
 <body>
   <div id="root"></div>
-  <script type="text/babel" data-presets="react,typescript">
-    ${code}
-
-    (function mount() {
+  <script>
+    (function transpileAndRun() {
       try {
-        const Component = window.__PreviewComponent;
-        if (Component) {
-          ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(Component));
+        var rawUserCode = ${JSON.stringify(code)};
+
+        // Use Babel Standalone to transpile TSX to pure JavaScript cleanly
+        var result = Babel.transform(rawUserCode, {
+          presets: ['react', 'typescript'],
+          filename: 'page.tsx'
+        });
+
+        // Execute transpiled JavaScript
+        var scriptEl = document.createElement('script');
+        scriptEl.text = result.code;
+        document.body.appendChild(scriptEl);
+
+        // Mount React Component
+        var ComponentToRender = window.exports.default ||
+                               window.__PreviewComponent ||
+                               (typeof Page !== 'undefined' ? Page : null) ||
+                               (typeof App !== 'undefined' ? App : null);
+
+        if (ComponentToRender) {
+          var rootElement = document.getElementById('root');
+          var root = ReactDOM.createRoot(rootElement);
+          root.render(React.createElement(ComponentToRender));
         } else {
           document.getElementById('root').innerHTML =
-            '<div style="padding:32px;color:#f87171;background:#05070a;font-family:sans-serif;">' +
-            '<h3 style="margin:0 0 8px">No Component Found</h3>' +
-            '<p style="color:#94a3b8;margin:0;font-size:12px;">page.tsx must export a default React component.</p></div>';
+            '<div style="padding:24px;color:#f87171;font-family:sans-serif;background:#05070a;">' +
+            '<h3 style="margin:0 0 8px;font-size:14px;font-weight:bold;">No Component Exported</h3>' +
+            '<p style="margin:0;font-size:12px;color:#94a3b8;">Ensure page.tsx exports a default React component.</p>' +
+            '</div>';
         }
       } catch (e) {
+        console.error("Transpile/Render Exception:", e);
         document.getElementById('root').innerHTML =
           '<div style="padding:24px;color:#f87171;font-family:monospace;background:#05070a;">' +
-          '<h3 style="margin:0 0 8px">Render Error</h3>' +
-          '<pre style="margin:0;font-size:12px;white-space:pre-wrap;">' + (e.message || String(e)) + '</pre></div>';
+          '<h3 style="margin:0 0 8px;font-size:14px;font-weight:bold;">Preview Compilation Error</h3>' +
+          '<pre style="margin:0;font-size:12px;white-space:pre-wrap;color:#fca5a5;">' + (e.message || String(e)) + '</pre>' +
+          '</div>';
       }
     })();
   </script>
