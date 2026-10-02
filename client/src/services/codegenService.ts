@@ -13,6 +13,15 @@ export type EventCallback = (event: SSEEvent) => void;
 
 const MAX_CONTEXT_CHARS = 14000;
 
+/** Google retires Gemini model names regularly. Env override first, then these; the next one is tried on a 404. */
+const GEMINI_DEFAULT_MODELS = ['gemini-3.8-flash', 'gemini-3.7-flash'];
+const GEMINI_MAX_OUTPUT_TOKENS = 32000;
+
+function geminiCandidates(): string[] {
+  const configured = (process.env.GEMINI_CODEGEN_MODEL || '').trim();
+  return Array.from(new Set([configured, ...GEMINI_DEFAULT_MODELS].filter(Boolean)));
+}
+
 const SYSTEM_PROMPT = `You are a world-class senior frontend engineer. You build complete, production-ready, beautiful React applications based on user prompts.
 
 REQUIREMENTS:
@@ -46,20 +55,11 @@ EDIT MODE (when current files are provided):
 - Preserve working features. If the user only asks a question, answer in plain text with no file blocks.`;
 
 export class CodegenService {
-  /** Returns the active provider info based on available keys */
-  static getActiveProvider(): { provider: 'anthropic' | 'gemini' | 'none'; model: string } {
-    const anthropicKey = process.env.ANTHROPIC_API_KEY || process.env.CLAUDE_API_KEY;
-    if (anthropicKey) {
-      const model = process.env.CODEGEN_MODEL || 'claude-sonnet-5-5';
-      return { provider: 'anthropic', model };
+  /** Returns the active provider info. Gemini is the only supported provider. */
+  static getActiveProvider(): { provider: 'gemini' | 'none'; model: string } {
+    if (process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
+      return { provider: 'gemini', model: geminiCandidates()[0] };
     }
-
-    const geminiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
-    if (geminiKey) {
-      const model = process.env.GEMINI_CODEGEN_MODEL || 'gemini-2.5-flash';
-      return { provider: 'gemini', model };
-    }
-
     return { provider: 'none', model: 'none' };
   }
 
@@ -78,115 +78,42 @@ export class CodegenService {
     if (providerInfo.provider === 'none') {
       onEvent({
         type: 'error',
-        error: 'AI not configured. Please set ANTHROPIC_API_KEY or GOOGLE_GENERATIVE_AI_API_KEY in environment variables.',
+        error: 'AI is not configured. Set GOOGLE_GENERATIVE_AI_API_KEY in .env.local (free key: https://aistudio.google.com/apikey) and restart the server.',
       });
       return;
     }
 
-    if (providerInfo.provider === 'anthropic') {
-      await CodegenService.streamAnthropic({ prompt, history, currentFiles, model: providerInfo.model, onEvent });
-    } else {
-      await CodegenService.streamGemini({ prompt, history, currentFiles, model: providerInfo.model, onEvent });
-    }
+    await CodegenService.streamGeminiWithFallback({ prompt, history, currentFiles, onEvent });
   }
 
-  /** Stream via Anthropic Messages API */
-  private static async streamAnthropic(params: {
+  /** Tries each candidate Gemini model; moves to the next only on a 404 (retired / unknown model) before any output. */
+  private static async streamGeminiWithFallback(params: {
     prompt: string;
     history: { role: 'user' | 'assistant'; content: string }[];
     currentFiles: ProjectFile[];
-    model: string;
     onEvent: EventCallback;
   }): Promise<void> {
-    const { prompt, history, currentFiles, model, onEvent } = params;
-    const apiKey = process.env.ANTHROPIC_API_KEY || process.env.CLAUDE_API_KEY;
-    const baseUrl = process.env.ANTHROPIC_BASE_URL || 'https://api.anthropic.com';
+    const { onEvent, ...rest } = params;
+    const models = geminiCandidates();
 
-    const messages = [...history];
+    for (let i = 0; i < models.length; i++) {
+      const model = models[i];
+      const isLast = i === models.length - 1;
+      let started = false;
+      let notFound = false;
 
-    let userContent = prompt;
-    if (currentFiles.length > 0) {
-      const filesSummary = currentFiles
-        .map((f) => `<file path="${f.path}">\n${f.content.slice(0, MAX_CONTEXT_CHARS)}\n</file>`)
-        .join('\n\n');
-      userContent = `Current files:\n${filesSummary}\n\nUser request:\n${prompt}`;
-    }
-
-    messages.push({ role: 'user', content: userContent });
-
-    try {
-      const res = await fetch(`${baseUrl}/v1/messages`, {
-        method: 'POST',
-        headers: {
-          'x-api-key': apiKey!,
-          'anthropic-version': '2023-06-01',
-          'content-type': 'application/json',
-          // Required when the key is not scoped to a single workspace (identity-linked "sk-ant-usr-" keys)
-          ...(process.env.ANTHROPIC_WORKSPACE_ID
-            ? { 'anthropic-workspace-id': process.env.ANTHROPIC_WORKSPACE_ID }
-            : {}),
-        },
-        body: JSON.stringify({
-          model,
-          max_tokens: 16000,
-          system: SYSTEM_PROMPT,
-          messages,
-          stream: true,
-        }),
-      });
-
-      if (!res.ok) {
-        const errText = await res.text();
-        logger.error(`Anthropic streaming error ${res.status}: ${errText}`, 'codegenService');
-        onEvent({ type: 'error', error: `Anthropic API error (${res.status}): ${errText.slice(0, 200)}` });
-        return;
-      }
-
-      if (!res.body) {
-        onEvent({ type: 'error', error: 'No response body received from Anthropic streaming endpoint' });
-        return;
-      }
-
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = '';
-      let fileParser = new StreamBlockParser(onEvent);
-
-      while (true) {
-        const { value, done } = await reader.read();
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-        buffer = lines.pop() || '';
-
-        for (const line of lines) {
-          const trimmed = line.trim();
-          if (!trimmed || !trimmed.startsWith('data: ')) continue;
-          const dataStr = trimmed.slice(6);
-          if (dataStr === '[DONE]') continue;
-
-          let data: any;
-          try {
-            data = JSON.parse(dataStr);
-          } catch {
-            continue; // ignore malformed SSE line
-          }
-          if (data.type === 'error') {
-            onEvent({ type: 'error', error: `Anthropic stream error: ${data.error?.message || 'unknown'}` });
-            return;
-          }
-          if (data.type === 'content_block_delta' && data.delta?.text) {
-            fileParser.parseChunk(data.delta.text);
-          }
+      const guarded: EventCallback = (e) => {
+        if (e.type === 'plan_delta' || e.type === 'file_start') started = true;
+        if (e.type === 'error' && !started && !isLast && /Gemini API error \(404\)/.test(e.error ?? '')) {
+          notFound = true;
+          return;
         }
-      }
+        onEvent(e);
+      };
 
-      if (fileParser.finish()) onEvent({ type: 'done' });
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      logger.error(`Anthropic stream error: ${msg}`, 'codegenService');
-      onEvent({ type: 'error', error: `Anthropic Stream Error: ${msg}` });
+      if (i > 0) logger.warn(`Gemini model "${models[i - 1]}" unavailable - trying "${model}"`, 'codegenService');
+      await CodegenService.streamGemini({ ...rest, model, onEvent: guarded });
+      if (!notFound) return;
     }
   }
 
@@ -221,13 +148,30 @@ export class CodegenService {
             ...history.map((m) => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.content }] })),
             { role: 'user', parts: [{ text: userContent }] },
           ],
-          generationConfig: { temperature: 0.4, maxOutputTokens: 16000 },
+          generationConfig: {
+            temperature: 0.4,
+            maxOutputTokens: GEMINI_MAX_OUTPUT_TOKENS,
+            // Thinking tokens count against maxOutputTokens and slow the stream; keep them minimal for code output.
+            ...(/gemini-3/.test(model)
+              ? { thinkingConfig: { thinkingLevel: 'low' } }
+              : /2\.5-flash/.test(model)
+              ? { thinkingConfig: { thinkingBudget: 0 } }
+              : {}),
+          },
         }),
       });
 
       if (!res.ok) {
         const errText = await res.text();
-        onEvent({ type: 'error', error: `Gemini API error (${res.status}): ${errText.slice(0, 200)}` });
+        const hint =
+          res.status === 429
+            ? ' Free-tier rate limit reached. Wait about a minute and retry.'
+            : res.status === 400 || res.status === 403
+            ? ' Check GOOGLE_GENERATIVE_AI_API_KEY and GEMINI_CODEGEN_MODEL.'
+            : res.status === 404
+            ? ` Model "${model}" was not found. Set GEMINI_CODEGEN_MODEL=gemini-3.8-flash.`
+            : '';
+        onEvent({ type: 'error', error: `Gemini API error (${res.status}).${hint} ${errText.slice(0, 200)}` });
         return;
       }
 
@@ -240,6 +184,8 @@ export class CodegenService {
       const decoder = new TextDecoder();
       let buffer = '';
       let fileParser = new StreamBlockParser(onEvent);
+      let gotText = false;
+      let finishReason = '';
 
       while (true) {
         const { value, done } = await reader.read();
@@ -251,17 +197,43 @@ export class CodegenService {
 
         for (const line of lines) {
           const trimmed = line.trim();
-          if (!trimmed || !trimmed.startsWith('data: ')) continue;
+          if (!trimmed || !trimmed.startsWith('data:')) continue;
+
+          // Only JSON parsing is guarded; parser errors must propagate to the outer catch.
+          let data: any;
           try {
-            const data = JSON.parse(trimmed.slice(6));
-            const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-            if (text) {
-              fileParser.parseChunk(text);
-            }
+            data = JSON.parse(trimmed.slice(5).trim());
           } catch {
-            // Ignore malformed SSE lines
+            continue;
+          }
+
+          if (data.error) {
+            onEvent({ type: 'error', error: `Gemini error: ${data.error.message || 'unknown'}` });
+            return;
+          }
+          if (data.promptFeedback?.blockReason) {
+            onEvent({ type: 'error', error: `Gemini blocked the request (${data.promptFeedback.blockReason}). Rephrase your prompt.` });
+            return;
+          }
+
+          const cand = data.candidates?.[0];
+          if (cand?.finishReason) finishReason = cand.finishReason;
+          for (const part of cand?.content?.parts ?? []) {
+            if (part.thought || typeof part.text !== 'string' || !part.text) continue;
+            gotText = true;
+            fileParser.parseChunk(part.text);
           }
         }
+      }
+
+      if (!gotText) {
+        onEvent({ type: 'error', error: `Gemini returned no output${finishReason ? ` (finish reason: ${finishReason})` : ''}. Try again.` });
+        return;
+      }
+      if (finishReason === 'MAX_TOKENS') {
+        fileParser.finish(); // reports a cut-off file if one was mid-write
+        onEvent({ type: 'error', error: 'Gemini hit its output limit before finishing. Try a smaller request.' });
+        return;
       }
 
       if (fileParser.finish()) onEvent({ type: 'done' });
@@ -321,12 +293,18 @@ class StreamBlockParser {
           continue;
         }
 
-        // If no file tag yet, emit as plan text
-        if (this.inPlan && this.buffer.length > 30) {
-          const emitLen = this.buffer.length - 20; // Keep trailing 20 chars in buffer to avoid splitting tags
-          const textToEmit = this.buffer.slice(0, emitLen);
-          this.onEvent({ type: 'plan_delta', chunk: textToEmit });
-          this.buffer = this.buffer.slice(emitLen);
+        // No complete tag yet: emit plan text, but hold back any unclosed '<...' tail so a tag
+        // split across chunks (e.g. '<file path="src/comp') is never flushed as plan text.
+        if (this.inPlan) {
+          const lt = this.buffer.lastIndexOf('<');
+          const hold =
+            lt !== -1 && this.buffer.length - lt < 300 && !this.buffer.slice(lt).includes('>')
+              ? lt
+              : this.buffer.length;
+          if (hold > 0) {
+            this.onEvent({ type: 'plan_delta', chunk: this.buffer.slice(0, hold) });
+            this.buffer = this.buffer.slice(hold);
+          }
         }
         break;
       } else {

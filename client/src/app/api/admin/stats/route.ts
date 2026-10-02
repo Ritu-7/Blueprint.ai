@@ -21,10 +21,12 @@ export async function GET() {
       );
     }
 
+    const client = await clerkClient();
+
     // Run all counts in parallel for speed.
     const [clerkUsersResponse, projectsResult, blueprintVersionsResult, queueDepth] =
       await Promise.all([
-        clerkClient.users.getCount({}),
+        client.users.getCount({}),
         adminClient.from('projects').select('id', { count: 'exact', head: true }),
         adminClient.from('blueprint_versions').select('id', { count: 'exact', head: true }),
         JobStore.queueDepth(),

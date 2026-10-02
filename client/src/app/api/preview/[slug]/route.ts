@@ -5,33 +5,107 @@ import type { ProjectFile } from '@/types/project';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
+/** Transforms ES import statements into local variable declarations bound to global proxies */
+function transformCodeImports(code: string): string {
+  let result = code.replace(/^\s*['"]use (client|server)['"];?\s*\n?/gm, '');
+
+  // 1. Remove "import type ..." statements completely (TypeScript types)
+  result = result.replace(/import\s+type\s+[\s\S]*?from\s+['"].*?['"];?/g, '');
+
+  // 2. Transform imports: handles default imports, named imports, and combined (import React, { useState } from 'react')
+  result = result.replace(/import\s+(?:([A-Za-z0-9_]+)\s*,?\s*)?(?:\{([^}]+)\})?\s*from\s*['"]([^'"]+)['"];?/g, (_, defaultName, namedStr, mod) => {
+    const lines: string[] = [];
+
+    // Handle default import (e.g. import React from 'react')
+    if (defaultName && defaultName !== 'React') {
+      lines.push(`var ${defaultName} = (typeof ${defaultName} !== 'undefined' ? ${defaultName} : (window.${defaultName} || {}));`);
+    }
+
+    // Handle named imports (e.g. { useState, BarChart3 as MyChart })
+    if (namedStr) {
+      const symbols = namedStr.split(',').map((s: string) => s.trim()).filter(Boolean);
+      for (const sym of symbols) {
+        const cleanSym = sym.replace(/^type\s+/, '').trim();
+        if (!cleanSym) continue;
+
+        const parts = cleanSym.split(/\s+as\s+/);
+        const original = parts[0].trim();
+        const alias = (parts[1] || parts[0]).trim();
+
+        if (alias === 'React') continue; // Don't re-declare React
+
+        if (mod === 'lucide-react') {
+          lines.push(`var ${alias} = LucideProxy.${original};`);
+        } else if (mod === 'react') {
+          lines.push(`var ${alias} = React.${original};`);
+        } else if (mod.includes('recharts')) {
+          lines.push(`var ${alias} = RechartsProxy.${original};`);
+        } else if (mod.includes('framer-motion')) {
+          lines.push(`var ${alias} = MotionProxy.${original};`);
+        } else {
+          lines.push(`var ${alias} = (typeof ${alias} !== 'undefined' ? ${alias} : (window.${alias} || {}));`);
+        }
+      }
+    }
+
+    return lines.join('\n');
+  });
+
+  // 3. Remove any residual star imports: import * as X from 'module';
+  result = result.replace(/import\s+\*\s+as\s+([A-Za-z0-9_]+)\s+from\s*['"]([^'"]+)['"];?/g, (_, alias) => {
+    return `var ${alias} = {};`;
+  });
+
+  return result;
+}
+
 /** Builds the full standalone HTML for a given set of project files */
 function buildPreviewHTML(files: ProjectFile[], projectName: string): string {
-  const pageFile =
-    files.find((f) => f.path === 'app/page.tsx' || f.path === 'page.tsx') ??
-    files.find((f) => f.path.endsWith('page.tsx') || f.path.endsWith('page.jsx') || f.path.endsWith('.tsx'));
+  // 1. Locate main entry file with priority
+  const entryFile =
+    files.find((f) => f.path === 'src/App.tsx' || f.path === 'App.tsx' || f.path === 'app/page.tsx' || f.path === 'page.tsx') ??
+    files.find((f) => f.path.endsWith('App.tsx') || f.path.endsWith('page.tsx')) ??
+    files.find((f) => f.content && (f.content.includes('export default function') || f.content.includes('export default')));
 
-  if (!pageFile) {
+  if (!entryFile) {
     return `<!DOCTYPE html><html><head><title>${projectName} Preview</title></head>
     <body style="background:#05070a;color:#fff;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;flex-direction:column;gap:12px;">
       <h2 style="margin:0;font-size:18px;font-weight:900;">${projectName}</h2>
-      <p style="margin:0;color:#71717a;font-size:13px;">No page.tsx found in this project.</p>
+      <p style="margin:0;color:#71717a;font-size:13px;">No App.tsx or page.tsx found in this project.</p>
     </body></html>`;
   }
 
-  let code = pageFile.content ?? '';
-  code = code.replace(/^\s*['"]use (client|server)['"];?\s*\n?/gm, '');
-  code = code.replace(/import\s+[\s\S]*?from\s+['"].*?['"];?/g, '');
+  // 2. Separate helper script files (.tsx, .ts, .js, .jsx)
+  const helperFiles = files.filter(
+    (f) =>
+      f !== entryFile &&
+      (f.path.endsWith('.tsx') || f.path.endsWith('.ts') || f.path.endsWith('.jsx') || f.path.endsWith('.js'))
+  );
 
-  // Detect component name then strip exports
-  let defaultComponentName = 'Page';
-  const defaultFnMatch = code.match(/\bexport\s+default\s+function\s+([A-Za-z0-9_]+)/);
+  let combinedCode = '';
+
+  // Process and prepend helper files
+  for (const hf of helperFiles) {
+    let hCode = transformCodeImports(hf.content ?? '');
+    hCode = hCode.replace(/\bexport\s+default\s+function\s+([A-Za-z0-9_]+)/g, 'function $1');
+    hCode = hCode.replace(/\bexport\s+default\s+/g, 'var __helperDefault = ');
+    hCode = hCode.replace(/\bexport\s+(function|const|let|var|class|interface|type)\b/g, '$1');
+    combinedCode += `// --- ${hf.path} ---\n${hCode}\n\n`;
+  }
+
+  // Process main entry file
+  let mainCode = transformCodeImports(entryFile.content ?? '');
+
+  let defaultComponentName = 'App';
+  const defaultFnMatch = mainCode.match(/\bexport\s+default\s+function\s+([A-Za-z0-9_]+)/);
   if (defaultFnMatch) defaultComponentName = defaultFnMatch[1];
-  code = code.replace(/\bexport\s+default\s+function\b/g, 'function');
-  code = code.replace(/\bexport\s+default\s+class\b/g, 'class');
-  code = code.replace(/\bexport\s+default\s+/g, 'var __defaultExport = ');
-  code = code.replace(/\bexport\s+(function|const|let|var|class)\b/g, '$1');
-  code += `\n\nwindow.__PreviewComponent = typeof ${defaultComponentName} !== 'undefined' ? ${defaultComponentName} : (typeof __defaultExport !== 'undefined' ? __defaultExport : null);`;
+  mainCode = mainCode.replace(/\bexport\s+default\s+function\b/g, 'function');
+  mainCode = mainCode.replace(/\bexport\s+default\s+class\b/g, 'class');
+  mainCode = mainCode.replace(/\bexport\s+default\s+/g, 'var __defaultExport = ');
+  mainCode = mainCode.replace(/\bexport\s+(function|const|let|var|class)\b/g, '$1');
+
+  combinedCode += `// --- Main Entry: ${entryFile.path} ---\n${mainCode}\n\n`;
+  combinedCode += `window.__PreviewComponent = typeof ${defaultComponentName} !== 'undefined' ? ${defaultComponentName} : (typeof App !== 'undefined' ? App : (typeof Page !== 'undefined' ? Page : (typeof __defaultExport !== 'undefined' ? __defaultExport : null)));`;
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -53,10 +127,13 @@ function buildPreviewHTML(files: ProjectFile[], projectName: string): string {
     window.exports = {};
     window.module = { exports: window.exports };
     window.onerror = function(msg, url, line, col, err) {
-      document.getElementById('root').innerHTML =
-        '<div style="padding:24px;color:#f87171;font-family:monospace;background:#05070a;border-radius:12px;margin:16px;border:1px solid #334155;">' +
-        '<h4 style="margin:0 0 8px;font-size:13px;font-weight:bold;">Preview Error</h4>' +
-        '<pre style="margin:0;font-size:11px;white-space:pre-wrap;">' + (msg || err) + '</pre></div>';
+      var root = document.getElementById('root');
+      if (root) {
+        root.innerHTML =
+          '<div style="padding:24px;color:#f87171;font-family:monospace;background:#05070a;border-radius:12px;margin:16px;border:1px solid #334155;">' +
+          '<h4 style="margin:0 0 8px;font-size:13px;font-weight:bold;">Preview Error</h4>' +
+          '<pre style="margin:0;font-size:11px;white-space:pre-wrap;">' + (msg || err) + '</pre></div>';
+      }
     };
   </script>
   <script>
@@ -67,18 +144,28 @@ function buildPreviewHTML(files: ProjectFile[], projectName: string): string {
     const usePathname = () => '/';
     const useSearchParams = () => new URLSearchParams();
 
+    // Universal proxy for ANY Lucide-React icon component
     const LucideProxy = new Proxy({}, {
       get: (_, prop) => typeof prop !== 'string' ? () => null : function Icon({ className = '', size = 16, style = {}, ...p }) {
         return React.createElement('span', { className: 'inline-flex items-center justify-center ' + className, style: Object.assign({ display:'inline-flex', width: size, height: size }, style), ...p }, '✦');
       }
     });
-    const Search = LucideProxy.Search; const Sparkles = LucideProxy.Sparkles; const Plus = LucideProxy.Plus;
-    const ArrowUpRight = LucideProxy.ArrowUpRight; const Check = LucideProxy.Check; const Trash2 = LucideProxy.Trash2;
-    const Filter = LucideProxy.Filter; const Star = LucideProxy.Star; const Shield = LucideProxy.Shield;
-    const Activity = LucideProxy.Activity; const X = LucideProxy.X; const Home = LucideProxy.Home;
-    const User = LucideProxy.User; const Settings = LucideProxy.Settings; const Bell = LucideProxy.Bell;
-    const Menu = LucideProxy.Menu; const ChevronDown = LucideProxy.ChevronDown; const ChevronRight = LucideProxy.ChevronRight;
-    const Edit = LucideProxy.Edit; const Eye = LucideProxy.Eye; const Heart = LucideProxy.Heart;
+
+    // Proxy for Recharts components
+    const RechartsProxy = new Proxy({}, {
+      get: (_, prop) => typeof prop !== 'string' ? () => null : function RechartsComponent({ children, className = '', ...p }) {
+        return React.createElement('div', { className: 'recharts-element ' + className, ...p }, children);
+      }
+    });
+
+    // Proxy for Framer Motion components
+    const MotionProxy = new Proxy({}, {
+      get: (_, prop) => typeof prop !== 'string' ? 'div' : new Proxy({}, {
+        get: (__, tag) => function MotionComponent({ children, ...p }) {
+          return React.createElement(tag || 'div', p, children);
+        }
+      })
+    });
   </script>
   <style>
     * { box-sizing: border-box; }
@@ -91,9 +178,9 @@ function buildPreviewHTML(files: ProjectFile[], projectName: string): string {
   <script>
     (function transpileAndRun() {
       try {
-        var rawUserCode = ${JSON.stringify(code)};
+        var rawUserCode = ${JSON.stringify(combinedCode)};
 
-        // Use Babel Standalone to transpile TSX to pure JavaScript cleanly
+        // Use Babel Standalone to transpile multi-file TSX to pure JavaScript cleanly
         var result = Babel.transform(rawUserCode, {
           presets: ['react', 'typescript'],
           filename: 'page.tsx'
@@ -107,8 +194,8 @@ function buildPreviewHTML(files: ProjectFile[], projectName: string): string {
         // Mount React Component
         var ComponentToRender = window.exports.default ||
                                window.__PreviewComponent ||
-                               (typeof Page !== 'undefined' ? Page : null) ||
-                               (typeof App !== 'undefined' ? App : null);
+                               (typeof App !== 'undefined' ? App : null) ||
+                               (typeof Page !== 'undefined' ? Page : null);
 
         if (ComponentToRender) {
           var rootElement = document.getElementById('root');
@@ -118,7 +205,7 @@ function buildPreviewHTML(files: ProjectFile[], projectName: string): string {
           document.getElementById('root').innerHTML =
             '<div style="padding:24px;color:#f87171;font-family:sans-serif;background:#05070a;">' +
             '<h3 style="margin:0 0 8px;font-size:14px;font-weight:bold;">No Component Exported</h3>' +
-            '<p style="margin:0;font-size:12px;color:#94a3b8;">Ensure page.tsx exports a default React component.</p>' +
+            '<p style="margin:0;font-size:12px;color:#94a3b8;">Ensure App.tsx or page.tsx exports a default React component.</p>' +
             '</div>';
         }
       } catch (e) {

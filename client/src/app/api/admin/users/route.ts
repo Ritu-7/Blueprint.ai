@@ -11,7 +11,8 @@ export async function GET() {
     await requireAdmin();
 
     // Fetch up to 500 users; for most apps this is more than enough.
-    const response = await clerkClient.users.getUserList({ limit: 500 });
+    const client = await clerkClient();
+    const response = await client.users.getUserList({ limit: 500 });
     const users = response.data.map((u) => ({
       id: u.id,
       name: [u.firstName, u.lastName].filter(Boolean).join(' ') || null,

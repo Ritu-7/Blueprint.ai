@@ -12,7 +12,8 @@ type UserRole = 'admin' | 'client';
  */
 export async function getUserRole(userId: string): Promise<UserRole> {
   try {
-    const user = await clerkClient.users.getUser(userId);
+    const client = await clerkClient();
+    const user = await client.users.getUser(userId);
     const role = user.publicMetadata?.role;
     if (role === 'admin' || role === 'client') return role;
     return 'client';

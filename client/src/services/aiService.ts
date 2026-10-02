@@ -5,12 +5,7 @@ import { logger } from '@/lib/logger/logger';
 import { env } from '@/config/env';
 
 // ─── Provider model config (overridable via env) ─────────────────────────────
-const CLAUDE_MODELS: string[] = (process.env.CLAUDE_MODELS ?? 'claude-3-7-sonnet-20250219,claude-3-5-sonnet-20241022,claude-3-5-haiku-20241022,claude-sonnet-5-5,claude-haiku-4-5-20251001')
-  .split(',')
-  .map((s) => s.trim())
-  .filter(Boolean);
-
-const GEMINI_MODELS: string[] = (process.env.GEMINI_MODELS ?? 'gemini-flash-lite-latest,gemini-flash-latest,gemini-2.5-flash-lite,gemini-2.5-flash,gemini-3.6-flash')
+const GEMINI_MODELS: string[] = (process.env.GEMINI_MODELS ?? 'gemini-3.8-flash,gemini-3.7-flash,gemini-flash-latest,gemini-flash-lite-latest')
   .split(',')
   .map((s) => s.trim())
   .filter(Boolean);
@@ -191,11 +186,8 @@ export class AIService {
   private static logKeyStatus(): void {
     if (AIService._keysLogged) return;
     AIService._keysLogged = true;
-    const anthropicSet = !!(env.ANTHROPIC_API_KEY || env.CLAUDE_API_KEY ||
-      process.env.ANTHROPIC_API_KEY || process.env.CLAUDE_API_KEY);
     const geminiSet = !!(env.GOOGLE_GENERATIVE_AI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY);
-    logger.info(`AI provider keys — Anthropic: ${anthropicSet}, Gemini: ${geminiSet}`, 'aiService');
-    logger.info(`Claude models: ${CLAUDE_MODELS.join(', ')}`, 'aiService');
+    logger.info(`AI provider key - Gemini: ${geminiSet}`, 'aiService');
     logger.info(`Gemini models: ${GEMINI_MODELS.join(', ')}`, 'aiService');
   }
 
@@ -299,104 +291,6 @@ export class AIService {
     return validated;
   }
 
-  // ─── Claude (Anthropic) ─────────────────────────────────────────────────────
-  private static async generateWithClaude(
-    prompt: string,
-    apiKey: string,
-    deterministic: FullBlueprint
-  ): Promise<FullBlueprint | null> {
-    logger.info(`Calling Claude API (Anthropic) for prompt: "${prompt.slice(0, 50)}..."`, 'aiService');
-
-    const baseUrl = process.env.ANTHROPIC_BASE_URL ?? 'https://api.anthropic.com';
-    const systemInstruction = buildSystemPrompt(prompt);
-
-    for (const model of CLAUDE_MODELS) {
-      try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 20000);
-
-        const response = await fetch(`${baseUrl}/v1/messages`, {
-          method: 'POST',
-          headers: {
-            'x-api-key': apiKey,
-            'anthropic-version': '2023-06-01',
-            'content-type': 'application/json',
-          },
-          body: JSON.stringify({
-            model,
-            max_tokens: 4096,
-            messages: [{ role: 'user', content: systemInstruction }],
-          }),
-          signal: controller.signal,
-        });
-
-        clearTimeout(timeoutId);
-
-        if (!response.ok) {
-          const errBody = await response.text();
-          logger.warn(`Claude model ${model} HTTP ${response.status}: ${errBody.slice(0, 150)}`, 'aiService');
-          // Network or auth failures — no point trying other Claude models
-          if (response.status === 400 || response.status === 401 || response.status === 403) {
-            logger.warn('Claude auth/billing failure — skipping remaining Claude models', 'aiService');
-            return null;
-          }
-          continue;
-        }
-
-        const resData = await response.json();
-        const rawContent: string = resData.content?.[0]?.text || '';
-        if (!rawContent) continue;
-
-        const cleanedJson = rawContent.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
-        let aiNarrative: Record<string, unknown>;
-        try {
-          aiNarrative = JSON.parse(cleanedJson);
-        } catch {
-          logger.warn(`Claude model ${model} returned invalid JSON`, 'aiService');
-          continue;
-        }
-
-        const repairFn = async (badJson: string, zodErr: string) => {
-          try {
-            const repairRes = await fetch(`${baseUrl}/v1/messages`, {
-              method: 'POST',
-              headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
-              body: JSON.stringify({
-                model,
-                max_tokens: 4096,
-                messages: [{
-                  role: 'user',
-                  content: `Fix this JSON to exactly match the schema requirements. Return JSON only, no markdown.\n\nSchema errors:\n${zodErr.slice(0, 500)}\n\nInvalid JSON:\n${badJson.slice(0, 2000)}`,
-                }],
-              }),
-              signal: AbortSignal.timeout(15000),
-            });
-            if (!repairRes.ok) return null;
-            const rd = await repairRes.json();
-            const rt: string = rd.content?.[0]?.text || '';
-            if (!rt) return null;
-            return JSON.parse(rt.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim());
-          } catch { return null; }
-        };
-
-        const result = await buildAndValidate(aiNarrative, deterministic, `Claude(${model})`, repairFn);
-        if (result) {
-          logger.info(`Successfully generated Claude AI blueprint (${model}) for "${prompt.slice(0, 50)}..."`, 'aiService');
-          return result;
-        }
-      } catch (err: unknown) {
-        logFetchError(`Claude model ${model} error`, err);
-        // Network-level failure — bail out of Claude entirely
-        if (isNetworkError(err)) {
-          logger.warn('Claude network failure — skipping remaining Claude models', 'aiService');
-          return null;
-        }
-      }
-    }
-
-    return null;
-  }
-
   // ─── Gemini (Google) ────────────────────────────────────────────────────────
   private static async generateWithGemini(
     prompt: string,
@@ -491,14 +385,6 @@ export class AIService {
 
     const deterministic = AIService.generateDeterministic(prompt);
 
-    // Try Claude first
-    const claudeKey = env.ANTHROPIC_API_KEY || env.CLAUDE_API_KEY ||
-      process.env.ANTHROPIC_API_KEY || process.env.CLAUDE_API_KEY;
-    if (claudeKey) {
-      const claudeResult = await AIService.generateWithClaude(prompt, claudeKey, deterministic);
-      if (claudeResult) return claudeResult;
-    }
-
     // Try Gemini
     const geminiKey = env.GOOGLE_GENERATIVE_AI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY;
     if (geminiKey) {
@@ -512,7 +398,7 @@ export class AIService {
       ...deterministic,
       meta: {
         source: 'fallback',
-        reason: !claudeKey && !geminiKey
+        reason: !geminiKey
           ? 'No API keys configured'
           : 'All AI provider requests failed (network error or quota exceeded)',
       },
